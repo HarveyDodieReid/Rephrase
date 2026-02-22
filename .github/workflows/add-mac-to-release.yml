@@ -21,7 +21,7 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build:mac
+      - run: node scripts/icon-white.js && node scripts/prepare-mac-icon.js && vite build && npx electron-builder --mac --publish never
 
       - run: |
           VERSION=$(node -p "require('./package.json').version")

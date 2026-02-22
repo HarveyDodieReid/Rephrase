@@ -19,9 +19,7 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node scripts/icon-white.js && node scripts/build-icon.js && vite build && npx electron-builder --win --x64 --publish never
 
       - uses: actions/upload-artifact@v4
         with:
@@ -40,9 +38,7 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build:mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node scripts/icon-white.js && node scripts/prepare-mac-icon.js && vite build && npx electron-builder --mac --publish never
 
       - uses: actions/upload-artifact@v4
         with:
