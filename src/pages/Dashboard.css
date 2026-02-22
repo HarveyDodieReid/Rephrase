@@ -97,6 +97,16 @@
   color: #f5f5f7;
 }
 
+.db-root[data-theme="dark"] .db-mac-banner {
+  background: linear-gradient(135deg, rgba(10,132,255,0.15) 0%, rgba(10,132,255,0.08) 100%);
+  border-color: rgba(10,132,255,0.25);
+}
+.db-root[data-theme="dark"] .db-mac-banner-text { color: #f5f5f7; }
+.db-root[data-theme="dark"] .db-mac-banner-link { color: #5ac8fa; }
+.db-root[data-theme="dark"] .db-mac-banner-link:hover { background: rgba(10,132,255,0.2); }
+.db-root[data-theme="dark"] .db-mac-banner-dismiss { color: #98989d; }
+.db-root[data-theme="dark"] .db-mac-banner-dismiss:hover { color: #f5f5f7; }
+
 .db-root[data-theme="dark"] .db-section-title { color: #f5f5f7; }
 .db-root[data-theme="dark"] .db-see-all { color: #0a84ff; }
 
@@ -827,6 +837,52 @@
   border: 1px solid rgba(0,0,0,0.12);
   border-radius: 5px;
   padding: 2px 6px;
+  color: #1a1a1a;
+}
+
+/* Mac Now Available banner (Windows only) */
+.db-mac-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #e8f4fd 0%, #d6ebfa 100%);
+  border: 1px solid rgba(10,132,255,0.2);
+  border-radius: 12px;
+}
+.db-mac-banner-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  flex: 1;
+}
+.db-mac-banner-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0a84ff;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.db-mac-banner-link:hover {
+  background: rgba(10,132,255,0.15);
+}
+.db-mac-banner-dismiss {
+  font-size: 18px;
+  line-height: 1;
+  color: #7a7568;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+.db-mac-banner-dismiss:hover {
   color: #1a1a1a;
 }
 

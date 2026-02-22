@@ -70,6 +70,9 @@ export default function Dashboard() {
   const [updateProgress, setUpdateProgress] = useState(0)
   const [updateError, setUpdateError] = useState(null)
   const [showSplash,   setShowSplash]   = useState(true)
+  const [showMacBanner, setShowMacBanner] = useState(() =>
+    typeof localStorage !== 'undefined' && !localStorage.getItem('rephrase-mac-banner-dismissed') && window.electronAPI?.platform === 'win32'
+  )
   const [theme,        setTheme]        = useState('light')
   const [scheme,       setScheme]       = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
   const startPos = useRef(null)
@@ -397,6 +400,31 @@ export default function Dashboard() {
                   Voice transcripts and shortcuts at a glance. Start recording with your hotkey or use Composer to generate documents.
                 </p>
               </div>
+
+              {/* Mac Now Available banner (Windows only) */}
+              {showMacBanner && (
+                <div className="db-mac-banner">
+                  <span className="db-mac-banner-text">Mac Now Available</span>
+                  <button
+                    type="button"
+                    className="db-mac-banner-link"
+                    onClick={() => window.electronAPI?.openExternal?.('https://github.com/HarveyDodieReid/Rephrase/releases')}
+                  >
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    className="db-mac-banner-dismiss"
+                    onClick={() => {
+                      setShowMacBanner(false)
+                      try { localStorage.setItem('rephrase-mac-banner-dismissed', '1') } catch {}
+                    }}
+                    aria-label="Dismiss"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
 
               {/* Stats */}
               <div className="db-stats-row">
