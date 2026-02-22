@@ -1,67 +1,57 @@
-# Create GitHub release with Rephrase Setup
-# Run: $env:GITHUB_TOKEN="your_token"; .\create-release.ps1
-# Get token: https://github.com/settings/tokens (scope: repo)
+# create-release.ps1
+# Creates a new release by tagging the current commit and pushing.
+# Pushing tag v* triggers .github/workflows/release.yml which builds Windows + Mac and publishes the GitHub release.
+#
+# Usage:
+#   .\create-release.ps1                    # use version from package.json
+#   .\create-release.ps1 -Version 1.3.0    # explicit version
+#   .\create-release.ps1 -DryRun            # show what would run, don't tag or push
 
-$ErrorActionPreference = "Stop"
-$token = $env:GITHUB_TOKEN
-if (-not $token) {
-    Write-Host "Set GITHUB_TOKEN first: `$env:GITHUB_TOKEN='ghp_xxx'; .\create-release.ps1"
-    exit 1
-}
-
-$pkg = Get-Content package.json | ConvertFrom-Json
-$version = $pkg.version
-$owner = $pkg.build.publish.owner
-$repo  = $pkg.build.publish.repo
-$tag = "v$version"
-$headers = @{
-    Authorization = "Bearer $token"
-    Accept = "application/vnd.github+json"
-}
-
-# Create or get existing release
-$body = @{
-    tag_name = $tag
-    name = $tag
-    body = "Rephrase $tag - Groq AI rephrase widget. See CHANGELOG.md for details."
-} | ConvertTo-Json
-
-try {
-    $create = Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases" -Method Post -Headers $headers -Body $body -ContentType "application/json"
-    Write-Host "Created release $tag"
-} catch {
-    if ($_.Exception.Response.StatusCode -eq 422) {
-        $create = Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/tags/$tag" -Method Get -Headers $headers
-        Write-Host "Release $tag already exists, uploading assets"
-        foreach ($a in $create.assets) {
-            Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/assets/$($a.id)" -Method Delete -Headers $headers | Out-Null
-            Write-Host "Deleted existing $($a.name)"
-        }
-    } else { throw }
-}
-
-# Upload assets — use names that match latest.yml (electron-updater expects Rephrase-Setup-X.X.X.exe)
-$uploadBase = $create.upload_url -replace '\{.*\}',''
-$baseName = "Rephrase-Setup-$version"
-$assets = @(
-    @{ Path = "dist-electron\Rephrase Setup $version.exe"; Name = "$baseName.exe" },
-    @{ Path = "dist-electron\latest.yml"; Name = "latest.yml" },
-    @{ Path = "dist-electron\Rephrase Setup $version.exe.blockmap"; Name = "$baseName.exe.blockmap" },
-    # Mac (build with: npm run build:mac on macOS)
-    @{ Path = "dist-electron\Rephrase-$version-arm64.dmg"; Name = "$baseName-mac-arm64.dmg" },
-    @{ Path = "dist-electron\Rephrase-$version-x64.dmg"; Name = "$baseName-mac-x64.dmg" },
-    @{ Path = "dist-electron\Rephrase-$version-arm64-mac.zip"; Name = "$baseName-mac-arm64.zip" },
-    @{ Path = "dist-electron\Rephrase-$version-x64-mac.zip"; Name = "$baseName-mac-x64.zip" }
+param(
+    [string] $Version,
+    [switch] $DryRun
 )
 
-foreach ($a in $assets) {
-    $path = $a.Path
-    $name = $a.Name
-    if (Test-Path $path) {
-        $uri = "$uploadBase`?name=" + [System.Uri]::EscapeDataString($name)
-        $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $path))
-        Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Body $bytes -ContentType "application/octet-stream"
-        Write-Host "Uploaded $name"
+$ErrorActionPreference = 'Stop'
+$repoRoot = $PSScriptRoot
+
+if (-not $Version) {
+    $pkgPath = Join-Path $repoRoot 'package.json'
+    if (-not (Test-Path $pkgPath)) {
+        Write-Error "package.json not found at $pkgPath"
     }
+    $pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
+    $Version = $pkg.version
+    if (-not $Version) {
+        Write-Error "No version in package.json"
+    }
+    Write-Host "Using version from package.json: $Version"
+} else {
+    Write-Host "Using version: $Version"
 }
-Write-Host "Release $tag created: $($create.html_url)"
+
+$tag = "v$Version"
+
+# Check tag doesn't already exist
+$existing = git tag -l $tag 2>$null
+if ($existing) {
+    Write-Error "Tag $tag already exists. Delete it first with: git tag -d $tag; git push origin :refs/tags/$tag"
+}
+
+if ($DryRun) {
+    Write-Host "[DryRun] Would run:"
+    Write-Host "  git tag $tag -m `"Release $Version`""
+    Write-Host "  git push origin $tag"
+    Write-Host "Then the Release workflow would build and publish the release."
+    exit 0
+}
+
+Push-Location $repoRoot
+try {
+    git tag $tag -m "Release $Version"
+    git push origin $tag
+    Write-Host "Pushed tag $tag. Release workflow: https://github.com/HarveyDodieReid/Rephrase/actions"
+    Write-Host "When it finishes, release will be at: https://github.com/HarveyDodieReid/Rephrase/releases/tag/$tag"
+} finally {
+    Pop-Location
+}
