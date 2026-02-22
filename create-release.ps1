@@ -40,17 +40,19 @@ try {
     } else { throw }
 }
 
-# Upload assets
+# Upload assets — use names that match latest.yml (electron-updater expects Rephrase-Setup-X.X.X.exe)
 $uploadBase = $create.upload_url -replace '\{.*\}',''
+$baseName = "Rephrase-Setup-$version"
 $assets = @(
-    "dist-electron\Rephrase Setup $version.exe",
-    "dist-electron\latest.yml",
-    "dist-electron\Rephrase Setup $version.exe.blockmap"
+    @{ Path = "dist-electron\Rephrase Setup $version.exe"; Name = "$baseName.exe" },
+    @{ Path = "dist-electron\latest.yml"; Name = "latest.yml" },
+    @{ Path = "dist-electron\Rephrase Setup $version.exe.blockmap"; Name = "$baseName.exe.blockmap" }
 )
 
-foreach ($path in $assets) {
+foreach ($a in $assets) {
+    $path = $a.Path
+    $name = $a.Name
     if (Test-Path $path) {
-        $name = Split-Path $path -Leaf
         $uri = "$uploadBase`?name=" + [System.Uri]::EscapeDataString($name)
         $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $path))
         Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Body $bytes -ContentType "application/octet-stream"

@@ -2076,7 +2076,7 @@ app.on('second-instance', (event, commandLine) => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
-  stopIdleMonitor()
+  if (typeof stopIdleMonitor === 'function') stopIdleMonitor()
   stopSafetyMonitor()
   if (comboMonitorProcess) { try { comboMonitorProcess.kill() } catch {} ; comboMonitorProcess = null }
   if (keyMonitorProcess) { try { keyMonitorProcess.kill() } catch {} ; keyMonitorProcess = null }
