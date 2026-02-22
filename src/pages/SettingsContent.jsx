@@ -62,7 +62,6 @@ export default function SettingsContent({ section, onShowToast, onThemeChange })
   const [hotkeyRephrase,  setHotkeyRephrase] = useState('CommandOrControl+Shift+Space')
   const [hotkeyVoice,     setHotkeyVoice]    = useState('Control+Super')
   const [hotkeyComposer,  setHotkeyComposer] = useState('Alt+Super')
-  const [hotkeyHandsFree, setHotkeyHandsFree] = useState('Control+Space+Super')
   const [saveStatus,      setSaveStatus]     = useState('idle')
 
   // Microphone
@@ -82,7 +81,6 @@ export default function SettingsContent({ section, onShowToast, onThemeChange })
       if (s.hotkeyRephrase)     setHotkeyRephrase(s.hotkeyRephrase)
       if (s.hotkeyVoice)        setHotkeyVoice(s.hotkeyVoice)
       if (s.hotkeyComposer)     setHotkeyComposer(s.hotkeyComposer)
-      if (s.hotkeyHandsFree)    setHotkeyHandsFree(s.hotkeyHandsFree)
     })
     enumerateMics(false)
   }, [])
@@ -116,7 +114,6 @@ export default function SettingsContent({ section, onShowToast, onThemeChange })
   const resetShortcutsToDefault = () => {
     setHotkeyVoice('Control+Super')
     setHotkeyComposer('Alt+Super')
-    setHotkeyHandsFree('Control+Space+Super')
   }
 
   const save = async () => {
@@ -127,7 +124,7 @@ export default function SettingsContent({ section, onShowToast, onThemeChange })
       theme,
       launchAtStartup,
       micDeviceId: selectedMic,
-      hotkeyRephrase, hotkeyVoice, hotkeyHandsFree, hotkeyComposer,
+      hotkeyRephrase, hotkeyVoice, hotkeyComposer,
     })
     setSaveStatus('saved')
     setTimeout(() => setSaveStatus('idle'), 1800)
@@ -204,13 +201,6 @@ export default function SettingsContent({ section, onShowToast, onThemeChange })
               desc="Queue a thought for document or email"
               value={hotkeyComposer}
               onChange={setHotkeyComposer}
-            />
-            <Divider />
-            <ShortcutRow
-              label="Hands-free mode"
-              desc="Toggle dictation on or off"
-              value={hotkeyHandsFree}
-              onChange={setHotkeyHandsFree}
             />
             <Divider />
             <SettingRow

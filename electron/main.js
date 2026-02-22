@@ -150,7 +150,6 @@ async function getStore() {
         hotkeyRephrase: 'CommandOrControl+Shift+Space',
         hotkeyVoice: 'Control+Super',
         hotkeyComposer: 'Alt+Super',
-        hotkeyHandsFree: 'Control+Space+Super',
         theme: 'light',
         launchAtStartup: false,
         windowX: null,
@@ -1641,7 +1640,6 @@ handle('get-settings', async () => {
     hotkeyRephrase:       s.get('hotkeyRephrase'),
     hotkeyVoice:          s.get('hotkeyVoice'),
     hotkeyComposer:       s.get('hotkeyComposer'),
-    hotkeyHandsFree:      s.get('hotkeyHandsFree'),
     voiceTrainingEnabled: s.get('voiceTrainingEnabled'),
     voiceProfile:         s.get('voiceProfile'),
   }
@@ -1694,7 +1692,6 @@ handle('save-settings', async (_, data) => {
   set('hotkeyRephrase', data?.hotkeyRephrase)
   set('hotkeyVoice', data?.hotkeyVoice)
   set('hotkeyComposer', data?.hotkeyComposer)
-  set('hotkeyHandsFree', data?.hotkeyHandsFree)
   if (data?.autoFix) startAutoFix()
   else stopAutoFix()
   await registerShortcuts()   // re-register with any new hotkeys
