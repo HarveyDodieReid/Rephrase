@@ -34,6 +34,9 @@ jobs:
 
       - run: |
           VERSION=$(node -p "require('./package.json').version")
-          gh release upload "v$VERSION" dist-electron/Rephrase-Setup-*-mac-*.dmg dist-electron/Rephrase-Setup-*-mac-*.zip --clobber
+          TAG="v$VERSION"
+          for f in dist-electron/Rephrase-Setup-*-mac-*.dmg dist-electron/Rephrase-Setup-*-mac-*.zip; do
+            [ -f "$f" ] && gh release upload "$TAG" "$f" --clobber
+          done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
