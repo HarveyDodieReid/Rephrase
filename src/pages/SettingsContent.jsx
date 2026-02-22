@@ -573,17 +573,17 @@ export const HotkeyRecorder = memo(function HotkeyRecorder({ value, onChange }) 
       if (e.shiftKey) mods.push('Shift')
       if (e.altKey)   mods.push('Alt')
       if (e.metaKey)  mods.push('Super')
-      if (!mods.length) return
       let key = e.code
-      if      (key.startsWith('Key'))   key = key.slice(3)
-      else if (key.startsWith('Digit')) key = key.slice(5)
-      else if (key === 'Space')         key = 'Space'
-      else if (key === 'Enter')         key = 'Return'
-      else if (key === 'Backspace')     key = 'Backspace'
-      else if (key === 'Tab')           key = 'Tab'
-      else if (key === 'Delete')        key = 'Delete'
-      else if (/^F\d{1,2}$/.test(key)) key = key
-      else                             key = e.key.toUpperCase()
+      if      (key.startsWith('Key'))    key = key.slice(3)
+      else if (key.startsWith('Digit'))  key = key.slice(5)
+      else if (key === 'Space')          key = 'Space'
+      else if (key === 'Enter')          key = 'Return'
+      else if (key === 'Backspace')      key = 'Backspace'
+      else if (key === 'Tab')            key = 'Tab'
+      else if (key === 'Delete')         key = 'Delete'
+      else if (key.startsWith('Arrow'))  key = key.replace('Arrow', '')
+      else if (/^F\d{1,2}$/.test(key))   key = key
+      else                               key = e.key.length === 1 ? e.key.toUpperCase() : (e.key || key)
       onChange([...mods, key].join('+'))
       setRecording(false)
     }
@@ -593,12 +593,22 @@ export const HotkeyRecorder = memo(function HotkeyRecorder({ value, onChange }) 
 
   return (
     <button
+      type="button"
       className={`hotkey-chip ${recording ? 'recording' : ''}`}
       onClick={() => setRecording(true)}
       onBlur={() => setRecording(false)}
-      title="Click to change shortcut"
+      title={recording ? 'Press any key or shortcut • Esc to cancel' : 'Click to change shortcut'}
+      tabIndex={0}
     >
-      {recording ? <><span className="hk-dot" />Press a combo…</> : renderHotkey(value)}
+      {recording ? (
+        <span className="hotkey-recording-text">
+          <span className="hk-dot" aria-hidden />
+          Press any key
+          <span className="hk-hint"> · Esc to cancel</span>
+        </span>
+      ) : (
+        renderHotkey(value)
+      )}
     </button>
   )
 })

@@ -19,14 +19,26 @@ $headers = @{
     Accept = "application/vnd.github+json"
 }
 
-# Create release
+# Create or get existing release
 $body = @{
     tag_name = $tag
     name = $tag
     body = "Rephrase $tag - Groq AI rephrase widget. See CHANGELOG.md for details."
 } | ConvertTo-Json
 
-$create = Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases" -Method Post -Headers $headers -Body $body -ContentType "application/json"
+try {
+    $create = Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases" -Method Post -Headers $headers -Body $body -ContentType "application/json"
+    Write-Host "Created release $tag"
+} catch {
+    if ($_.Exception.Response.StatusCode -eq 422) {
+        $create = Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/tags/$tag" -Method Get -Headers $headers
+        Write-Host "Release $tag already exists, uploading assets"
+        foreach ($a in $create.assets) {
+            Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/assets/$($a.id)" -Method Delete -Headers $headers | Out-Null
+            Write-Host "Deleted existing $($a.name)"
+        }
+    } else { throw }
+}
 
 # Upload assets
 $uploadBase = $create.upload_url -replace '\{.*\}',''
@@ -39,7 +51,7 @@ $assets = @(
 foreach ($path in $assets) {
     if (Test-Path $path) {
         $name = Split-Path $path -Leaf
-        $uri = "$uploadBase`?name=$name"
+        $uri = "$uploadBase`?name=" + [System.Uri]::EscapeDataString($name)
         $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $path))
         Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Body $bytes -ContentType "application/octet-stream"
         Write-Host "Uploaded $name"

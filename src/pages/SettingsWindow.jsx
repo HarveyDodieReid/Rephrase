@@ -8,8 +8,10 @@ export default function SettingsWindow() {
   const [isMaximized, setMaximized] = useState(false)
   const [toast,       setToast]    = useState(null)   // { msg, id }
   const [theme,       setTheme]    = useState('light')
+  const [appVersion,  setAppVersion] = useState('…')
 
   useEffect(() => {
+    window.electronAPI?.getAppVersion?.().then(v => { if (v) setAppVersion(v) })
     const c1 = window.electronAPI?.onWindowMaximized?.(()   => setMaximized(true))
     const c2 = window.electronAPI?.onWindowUnmaximized?.(() => setMaximized(false))
     return () => { c1?.(); c2?.() }
@@ -70,7 +72,7 @@ export default function SettingsWindow() {
             ))}
           </nav>
           <div className="sw-sidebar-footer">
-            <span className="sw-version">v1.0.0</span>
+            <span className="sw-version">v{appVersion}</span>
           </div>
         </aside>
 

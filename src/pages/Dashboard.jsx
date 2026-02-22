@@ -62,6 +62,7 @@ export default function Dashboard() {
   const [searchQuery,  setSearchQuery]  = useState('')
   const [toast,        setToast]        = useState(null)
   const [updateInfo,   setUpdateInfo]   = useState(null)   // null | { version, url, notes }
+  const [appVersion,   setAppVersion]   = useState('…')
   const [updateDownloaded, setUpdateDownloaded] = useState(false)
   const [showSplash,   setShowSplash]   = useState(true)
   const [theme,        setTheme]        = useState('light')
@@ -84,6 +85,7 @@ export default function Dashboard() {
       setTranscripts(prev => [t, ...prev])
     })
 
+    window.electronAPI?.getAppVersion?.().then(v => { if (v) setAppVersion(v) })
     window.electronAPI?.checkForUpdate?.().then(info => {
       if (info) setUpdateInfo(info)
     })
@@ -311,7 +313,7 @@ export default function Dashboard() {
                 Close
               </button>
               <span className="db-version">
-                v1.0.0
+                v{appVersion}
                 {updateInfo && <span className="db-version-new"> → v{updateInfo.version}</span>}
               </span>
             </div>

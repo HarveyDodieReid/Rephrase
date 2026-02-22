@@ -631,6 +631,18 @@
   user-select: none;
 }
 
+.hotkey-recording-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hk-hint {
+  font-weight: 500;
+  opacity: 0.7;
+  font-size: 11px;
+}
+
 .hk-dot {
   width: 7px;
   height: 7px;
