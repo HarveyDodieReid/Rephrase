@@ -57,6 +57,8 @@ export default function Dashboard() {
   const [userAvatar,   setUserAvatar]   = useState(null)
   const [transcripts,  setTranscripts]  = useState([])
   const [copied,       setCopied]       = useState(null)
+  const [readingId,    setReadingId]    = useState(null)
+  const utteranceRef   = useRef(null)
   const [isMaximized,  setMaximized]    = useState(false)
   const [sidebarOpen,  setSidebarOpen]  = useState(true)
   const [searchQuery,  setSearchQuery]  = useState('')
@@ -138,8 +140,28 @@ export default function Dashboard() {
   }
 
   const deleteTranscript = async (id) => {
+    if (readingId === id) {
+      window.speechSynthesis?.cancel()
+      setReadingId(null)
+    }
     await window.electronAPI?.deleteTranscript?.(id)
     setTranscripts(prev => prev.filter(t => t.id !== id))
+  }
+
+  const readTranscript = (t) => {
+    if (!window.speechSynthesis) return
+    if (readingId === t.id) {
+      window.speechSynthesis.cancel()
+      setReadingId(null)
+      return
+    }
+    window.speechSynthesis.cancel()
+    const u = new SpeechSynthesisUtterance(t.text)
+    utteranceRef.current = u
+    u.onend = () => setReadingId(null)
+    u.onerror = () => setReadingId(null)
+    setReadingId(t.id)
+    window.speechSynthesis.speak(u)
   }
 
   const clearAll = async () => {
@@ -388,6 +410,14 @@ export default function Dashboard() {
                           <span className="db-recent-card-time">{relativeTime(t.timestamp)}</span>
                           <span className="db-recent-card-wc">{t.text.split(/\s+/).filter(Boolean).length} words</span>
                           <button
+                            className={`db-recent-card-btn${readingId === t.id ? ' reading' : ''}`}
+                            onClick={() => readTranscript(t)}
+                            title={readingId === t.id ? 'Stop' : 'Read aloud'}
+                          >
+                            <SpeakerIcon />
+                            {readingId === t.id ? 'Stop' : 'Read'}
+                          </button>
+                          <button
                             className={`db-recent-card-btn${copied === t.id ? ' copied' : ''}`}
                             onClick={() => copyTranscript(t)}
                             title="Copy"
@@ -493,6 +523,14 @@ export default function Dashboard() {
                                 {t.text.split(/\s+/).filter(Boolean).length} words
                               </span>
                               <div className="db-transcript-tile-actions">
+                                <button
+                                  className={`db-tile-btn${readingId === t.id ? ' reading' : ''}`}
+                                  onClick={() => readTranscript(t)}
+                                  title={readingId === t.id ? 'Stop' : 'Read aloud'}
+                                >
+                                  <SpeakerIcon />
+                                  {readingId === t.id ? 'Stop' : 'Read'}
+                                </button>
                                 <button
                                   className={`db-tile-btn${copied === t.id ? ' copied' : ''}`}
                                   onClick={() => copyTranscript(t)}
@@ -609,6 +647,16 @@ function SignOutIcon() {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
       <polyline points="16 17 21 12 16 7"/>
       <line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
+  )
+}
+
+function SpeakerIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
     </svg>
   )
 }

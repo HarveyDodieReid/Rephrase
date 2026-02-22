@@ -7,9 +7,9 @@ const {
 // Must be called before app is ready.
 const gotSingleLock = app.requestSingleInstanceLock()
 if (!gotSingleLock) {
-  // Another instance is already running — hand off command line and quit
   app.quit()
 }
+app.setName('Rephrase')   // Task Manager, Startup show "Rephrase" not "Electron"
 const path = require('path')
 const fs   = require('fs')
 const os   = require('os')
@@ -129,6 +129,7 @@ async function getStore() {
         hotkeyComposer: 'Alt+Super',
         hotkeyHandsFree: 'Control+Space+Super',
         theme: 'light',
+        launchAtStartup: false,
         windowX: null,
         windowY: null,
         voiceProfile: null,        // { corrections: {}, trainedAt, sampleCount }
@@ -1588,6 +1589,7 @@ handle('get-settings', async () => {
     micDeviceId:          s.get('micDeviceId'),
     fileTagging:          s.get('fileTagging'),
     theme:                s.get('theme'),
+    launchAtStartup:      s.get('launchAtStartup'),
     hotkeyRephrase:       s.get('hotkeyRephrase'),
     hotkeyVoice:          s.get('hotkeyVoice'),
     hotkeyComposer:       s.get('hotkeyComposer'),
@@ -1636,6 +1638,10 @@ handle('save-settings', async (_, data) => {
   set('micDeviceId', data?.micDeviceId)
   set('fileTagging', data?.fileTagging)
   set('theme', data?.theme)
+  if (data?.launchAtStartup !== undefined) {
+    s.set('launchAtStartup', data.launchAtStartup)
+    app.setLoginItemSettings({ openAtLogin: !!data.launchAtStartup })
+  }
   set('hotkeyRephrase', data?.hotkeyRephrase)
   set('hotkeyVoice', data?.hotkeyVoice)
   set('hotkeyComposer', data?.hotkeyComposer)
@@ -2041,10 +2047,13 @@ app.whenReady().then(async () => {
   setupAutoUpdater()
   await createWindow()
   createTray()
+  const s = await getStore()
+  const launchAtStartup = s.get('launchAtStartup')
+  app.setLoginItemSettings({ openAtLogin: !!launchAtStartup })
   if (process.platform === 'win32') {
     app.setUserTasks([
-      { program: process.execPath, arguments: '--open-settings', iconPath: process.execPath, iconIndex: 0, title: 'Open Sentence', description: 'Open to enter a sentence to rephrase' },
-      { program: process.execPath, arguments: '--quick-rephrase', iconPath: process.execPath, iconIndex: 0, title: 'Quick Rephrase', description: 'Open the rephrase widget' }
+      { program: process.execPath, arguments: '--open-settings', iconPath: process.execPath, iconIndex: 0, title: 'Rephrase Settings', description: 'Open Rephrase settings' },
+      { program: process.execPath, arguments: '--quick-rephrase', iconPath: process.execPath, iconIndex: 0, title: 'Quick Rephrase', description: 'Open the Rephrase widget' }
     ])
   }
   createSafetyWindow()
@@ -2053,7 +2062,6 @@ app.whenReady().then(async () => {
   // Go straight to dashboard (auth bypassed)
   isAuthenticated = true
   await registerShortcuts()
-  const s = await getStore()
   if (s.get('autoFix')) startAutoFix()
   await openDashboardWindow()
 })

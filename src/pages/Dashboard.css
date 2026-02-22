@@ -120,6 +120,11 @@
   color: #30d158;
   border-color: rgba(48,209,88,0.35);
 }
+.db-root[data-theme="dark"] .db-recent-card-btn.reading {
+  background: rgba(10,132,255,0.2);
+  color: #0a84ff;
+  border-color: rgba(10,132,255,0.35);
+}
 
 .db-root[data-theme="dark"] .db-empty-home .db-empty-icon-wrap { opacity: 0.12; }
 .db-root[data-theme="dark"] .db-empty-title { color: #f5f5f7; }
@@ -180,6 +185,11 @@
   background: rgba(48,209,88,0.2);
   color: #30d158;
   border-color: rgba(48,209,88,0.35);
+}
+.db-root[data-theme="dark"] .db-tile-btn.reading {
+  background: rgba(10,132,255,0.2);
+  color: #0a84ff;
+  border-color: rgba(10,132,255,0.35);
 }
 .db-root[data-theme="dark"] .db-tile-btn-delete:hover {
   background: rgba(255,59,48,0.15);
@@ -873,6 +883,11 @@
   color: #16a34a;
   border-color: rgba(22,163,74,0.22);
 }
+.db-recent-card-btn.reading {
+  background: rgba(80,70,228,0.10);
+  color: #5046e4;
+  border-color: rgba(80,70,228,0.25);
+}
 
 .db-empty-cta {
   margin-top: 8px;
@@ -1234,6 +1249,11 @@
   background: rgba(22,163,74,0.10);
   color: #16a34a;
   border-color: rgba(22,163,74,0.22);
+}
+.db-tile-btn.reading {
+  background: rgba(80,70,228,0.10);
+  color: #5046e4;
+  border-color: rgba(80,70,228,0.25);
 }
 
 .db-tile-btn-delete {

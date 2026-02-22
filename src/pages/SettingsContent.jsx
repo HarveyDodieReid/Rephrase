@@ -58,6 +58,7 @@ export default function SettingsContent({ section, onShowToast, onThemeChange })
   const [model,           setModel]          = useState(GROQ_MODEL)
   const [groqApiKey,      setGroqApiKey]     = useState('')
   const [theme,           setTheme]          = useState('light')
+  const [launchAtStartup, setLaunchAtStartup] = useState(false)
   const [hotkeyRephrase,  setHotkeyRephrase] = useState('CommandOrControl+Shift+Space')
   const [hotkeyVoice,     setHotkeyVoice]    = useState('Control+Super')
   const [hotkeyComposer,  setHotkeyComposer] = useState('Alt+Super')
@@ -76,6 +77,7 @@ export default function SettingsContent({ section, onShowToast, onThemeChange })
       if (s.model)              setModel(s.model)
       if (s.groqApiKey)         setGroqApiKey(s.groqApiKey)
       if (s.theme)              { setTheme(s.theme); onThemeChange?.(s.theme) }
+      if (s.launchAtStartup !== undefined) setLaunchAtStartup(s.launchAtStartup)
       if (s.micDeviceId)        setSelectedMic(s.micDeviceId)
       if (s.hotkeyRephrase)     setHotkeyRephrase(s.hotkeyRephrase)
       if (s.hotkeyVoice)        setHotkeyVoice(s.hotkeyVoice)
@@ -123,6 +125,7 @@ export default function SettingsContent({ section, onShowToast, onThemeChange })
       model,
       groqApiKey,
       theme,
+      launchAtStartup,
       micDeviceId: selectedMic,
       hotkeyRephrase, hotkeyVoice, hotkeyHandsFree, hotkeyComposer,
     })
@@ -157,6 +160,13 @@ export default function SettingsContent({ section, onShowToast, onThemeChange })
                   Get API key →
                 </a>
               </div>
+            </SettingRow>
+            <Divider />
+            <SettingRow
+              label="Start Rephrase at login"
+              desc="Launch Rephrase when you sign in to Windows"
+            >
+              <Toggle value={launchAtStartup} onChange={setLaunchAtStartup} />
             </SettingRow>
             <Divider />
             <SettingRow
