@@ -1,0 +1,389 @@
+/* ─── Root ─────────────────────────────────────────────────────────────────── */
+
+.aw-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f5f3ee;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1a1a1a;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: 0 32px 64px rgba(0,0,0,0.22), 0 8px 24px rgba(0,0,0,0.10);
+  animation: aw-enter 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes aw-enter {
+  from { transform: scale(0.96); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* ─── Redirect state (base auth: go straight to dashboard) ──────────────────── */
+
+.aw-root.aw-redirect {
+  align-items: center;
+  justify-content: center;
+}
+
+.aw-redirect-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.aw-redirect-text {
+  font-size: 14px;
+  color: #7a7568;
+  font-weight: 500;
+}
+
+/* ─── Title bar ────────────────────────────────────────────────────────────── */
+
+.aw-titlebar {
+  height: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #e8e4dc;
+  border-bottom: 1px solid rgba(0,0,0,0.09);
+  border-radius: 14px 14px 0 0;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.aw-titlebar:active { cursor: grabbing; }
+
+.aw-tb-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  pointer-events: none;
+}
+
+.aw-brandlogo {
+  width: 110px !important;
+  height: 22px !important;
+  object-fit: contain;
+  object-position: left center;
+  flex-shrink: 0;
+}
+
+.aw-tb-section {
+  font-size: 12px;
+  color: #7a7568;
+  font-weight: 400;
+}
+
+/* Window controls (close only for auth window) */
+.aw-wc-group {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  border-radius: 0 14px 0 0;
+  overflow: hidden;
+}
+
+.aw-wc {
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: #5a5448;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+
+.aw-wc:hover { background: rgba(0,0,0,0.08); color: #1a1a1a; }
+.aw-wc-close:hover { background: #e81123; color: #fff; }
+
+/* ─── Two-panel body ────────────────────────────────────────────────────────── */
+
+.aw-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* ─── LEFT panel (form) ─────────────────────────────────────────────────────── */
+
+.aw-left {
+  width: 54%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 32px 24px;
+  overflow-y: auto;
+  border-right: 1px solid rgba(0,0,0,0.07);
+}
+
+/* Logo */
+.aw-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.aw-logo-full {
+  width: 160px !important;
+  height: 44px !important;
+  object-fit: contain;
+  object-position: left center;
+}
+
+/* Form wrapper — centered vertically */
+.aw-form-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.aw-heading {
+  font-size: 19px;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.4px;
+  margin: 0 0 5px;
+  line-height: 1.2;
+}
+
+.aw-sub {
+  font-size: 13px;
+  color: #7a7568;
+  margin: 0 0 20px;
+  line-height: 1.45;
+}
+
+/* ─── Social buttons ────────────────────────────────────────────────────────── */
+
+.aw-social {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.aw-social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid rgba(0,0,0,0.14);
+  border-radius: 9px;
+  background: #fff;
+  color: #1a1a1a;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, box-shadow 0.1s;
+}
+
+.aw-social-btn:hover:not(:disabled) {
+  background: #f5f3ee;
+  border-color: rgba(0,0,0,0.22);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.aw-social-btn:disabled { opacity: 0.55; cursor: default; }
+
+/* ─── OR divider ────────────────────────────────────────────────────────────── */
+
+.aw-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.aw-or-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(0,0,0,0.10);
+}
+
+.aw-or-text {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #a09a8f;
+  letter-spacing: 0.6px;
+}
+
+/* ─── Feedback banners ──────────────────────────────────────────────────────── */
+
+.aw-banner {
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.aw-banner-err {
+  color: #c53030;
+  background: rgba(197,48,48,0.08);
+  border: 1px solid rgba(197,48,48,0.18);
+}
+
+.aw-banner-ok {
+  color: #2d7a4f;
+  background: rgba(45,122,79,0.08);
+  border: 1px solid rgba(45,122,79,0.18);
+}
+
+/* ─── Inputs ────────────────────────────────────────────────────────────────── */
+
+.aw-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid rgba(0,0,0,0.14);
+  border-radius: 9px;
+  background: #fff;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: #1a1a1a;
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.aw-input:focus {
+  border-color: #5046e4;
+  box-shadow: 0 0 0 3px rgba(80,70,228,0.10);
+}
+
+.aw-input::placeholder { color: #b5af9e; }
+
+/* ─── Submit button ─────────────────────────────────────────────────────────── */
+
+.aw-submit {
+  width: 100%;
+  padding: 10px;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s;
+  margin-top: 4px;
+  letter-spacing: -0.1px;
+}
+
+.aw-submit:hover:not(:disabled) { background: #333; }
+.aw-submit:disabled { opacity: 0.6; cursor: default; }
+
+/* ─── Toggle / terms ────────────────────────────────────────────────────────── */
+
+.aw-toggle {
+  font-size: 12px;
+  color: #7a7568;
+  margin: 12px 0 8px;
+  text-align: center;
+}
+
+.aw-toggle-btn {
+  background: none;
+  border: none;
+  color: #5046e4;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.aw-toggle-btn:hover { text-decoration: underline; }
+
+.aw-terms {
+  font-size: 11px;
+  color: #a09a8f;
+  line-height: 1.55;
+  margin: 0;
+  text-align: center;
+}
+
+.aw-link {
+  background: none;
+  border: none;
+  color: #5046e4;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ─── RIGHT panel (photo) ───────────────────────────────────────────────────── */
+
+.aw-right {
+  flex: 1;
+  border-radius: 0 0 14px 0;
+  position: relative;
+  overflow: hidden;
+  background: #0e0e10;   /* fallback while image loads */
+}
+
+/* Full-cover photo */
+.aw-right-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  border-radius: 0 0 14px 0;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Gradient scrim so text is readable over the photo */
+.aw-right-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 28px 24px 26px;
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.72) 0%,
+    rgba(0,0,0,0.35) 55%,
+    transparent 100%
+  );
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aw-right-headline {
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.2px;
+  margin: 0;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+.aw-right-sub {
+  font-size: 12px;
+  color: rgba(255,255,255,0.70);
+  line-height: 1.6;
+  margin: 0;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}

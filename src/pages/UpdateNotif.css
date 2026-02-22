@@ -1,0 +1,259 @@
+/* ─── Update Notif — Dashboard-matching styles ──────────────────────────────── */
+/* Same palette, typography, and structure as Dashboard.jsx for consistency.    */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: transparent;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.un-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f5f3ee;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1a1a1a;
+  border-radius: 14px;
+  box-shadow: 0 32px 64px rgba(0,0,0,0.22), 0 8px 24px rgba(0,0,0,0.10);
+  overflow: hidden;
+  animation: un-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes un-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ─── Title bar (matches .db-titlebar) ─────────────────────────────────────── */
+
+.un-titlebar {
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #e8e4dc;
+  border-bottom: 1px solid rgba(0,0,0,0.09);
+  border-radius: 14px 14px 0 0;
+  padding: 0 10px 0 12px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.un-tb-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.un-brand {
+  width: 95px !important;
+  height: 18px !important;
+  object-fit: contain;
+  object-position: left center;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.un-tb-sep {
+  width: 1px;
+  height: 12px;
+  background: rgba(0,0,0,0.15);
+  flex-shrink: 0;
+}
+
+.un-tb-tag {
+  font-size: 12px;
+  color: #7a7568;
+  font-weight: 500;
+}
+
+.un-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5a5448;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+.un-close:hover {
+  background: rgba(0,0,0,0.08);
+  color: #1a1a1a;
+}
+
+/* ─── Body (matches .db-stat-card / .db-shortcut-hint) ─────────────────────── */
+
+.un-body {
+  flex: 1;
+  padding: 14px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: transparent;
+}
+
+.un-version-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 4px 10px;
+  background: rgba(80,70,228,0.10);
+  color: #5046e4;
+  border: 1px solid rgba(80,70,228,0.20);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.un-notes {
+  font-size: 12.5px;
+  color: #7a7568;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── Actions (matches .db-update-banner-btn, .db-empty-cta) ────────────────── */
+
+.un-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 14px;
+}
+
+.un-btn {
+  flex: 1;
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.14s, color 0.14s, box-shadow 0.14s;
+  font-family: inherit;
+}
+
+.un-btn--primary {
+  background: #5046e4;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(80,70,228,0.25);
+}
+.un-btn--primary:hover {
+  background: #3d35c9;
+  box-shadow: 0 3px 12px rgba(80,70,228,0.35);
+}
+.un-btn--primary:active {
+  background: #342db5;
+}
+
+.un-btn--ghost {
+  background: rgba(0,0,0,0.06);
+  color: #5a5448;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+.un-btn--ghost:hover {
+  background: rgba(0,0,0,0.09);
+  color: #1a1a1a;
+}
+.un-btn--ghost:active {
+  background: rgba(0,0,0,0.12);
+}
+
+/* ─── Progress bar (auto-dismiss countdown) ─────────────────────────────────── */
+
+.un-progress {
+  height: 3px;
+  flex-shrink: 0;
+  background: linear-gradient(90deg, #5046e4 0%, rgba(80,70,228,0.5) 100%);
+  border-radius: 0 0 14px 14px;
+  transform-origin: left center;
+  animation: un-progress 9s linear forwards;
+}
+
+@keyframes un-progress {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════ */
+/* ─── Dark mode (exact same values as .db-root[data-theme="dark"]) ─────────── */
+/* ════════════════════════════════════════════════════════════════════════════ */
+
+.un-root[data-theme="dark"] {
+  background: #1c1c1e;
+  color: #f5f5f7;
+  box-shadow: 0 32px 64px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.un-root[data-theme="dark"] .un-titlebar {
+  background: #2c2c2e;
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+
+.un-root[data-theme="dark"] .un-tb-sep {
+  background: rgba(255,255,255,0.12);
+}
+
+.un-root[data-theme="dark"] .un-tb-tag {
+  color: #98989d;
+}
+
+.un-root[data-theme="dark"] .un-close {
+  color: #98989d;
+}
+.un-root[data-theme="dark"] .un-close:hover {
+  background: rgba(255,255,255,0.08);
+  color: #f5f5f7;
+}
+
+.un-root[data-theme="dark"] .un-version-pill {
+  background: rgba(10,132,255,0.2);
+  color: #0a84ff;
+  border-color: rgba(10,132,255,0.35);
+}
+
+.un-root[data-theme="dark"] .un-notes {
+  color: #98989d;
+}
+
+.un-root[data-theme="dark"] .un-btn--primary {
+  background: #0a84ff;
+  box-shadow: 0 2px 8px rgba(10,132,255,0.35);
+}
+.un-root[data-theme="dark"] .un-btn--primary:hover {
+  background: #409cff;
+  box-shadow: 0 3px 12px rgba(10,132,255,0.45);
+}
+.un-root[data-theme="dark"] .un-btn--primary:active {
+  background: #0066cc;
+}
+
+.un-root[data-theme="dark"] .un-btn--ghost {
+  background: rgba(255,255,255,0.06);
+  color: #98989d;
+  border-color: rgba(255,255,255,0.09);
+}
+.un-root[data-theme="dark"] .un-btn--ghost:hover {
+  background: rgba(255,255,255,0.10);
+  color: #f5f5f7;
+}
+.un-root[data-theme="dark"] .un-btn--ghost:active {
+  background: rgba(255,255,255,0.14);
+}
+
+.un-root[data-theme="dark"] .un-progress {
+  background: linear-gradient(90deg, #0a84ff 0%, rgba(10,132,255,0.5) 100%);
+}

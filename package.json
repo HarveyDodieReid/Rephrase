@@ -1,0 +1,57 @@
+{
+  "name": "groq-rephrase-widget",
+  "version": "1.0.0",
+  "description": "Always-on-top Groq AI rephrase widget for Windows",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "node scripts/icon-white.js 2>nul & concurrently -k \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "build": "node scripts/icon-white.js && npx png-to-ico Logo-white.png > Logo.ico 2>nul && vite build && electron-packager . Rephrase --platform=win32 --arch=x64 --out=dist-electron --overwrite --icon=Logo.ico --ignore=dist-electron --ignore=node_modules/.cache",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@electron/packager": "^19.0.5",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.33.5",
+    "vite": "^6.0.7",
+    "wait-on": "^8.0.1"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.96.0",
+    "electron-store": "^8.2.0",
+    "groq-sdk": "^0.9.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "build": {
+    "appId": "com.rephrase.widget",
+    "productName": "Rephrase",
+    "copyright": "Copyright © 2026",
+    "asar": false,
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "error.wav"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "Logo.png",
+      "requestedExecutionLevel": "asInvoker"
+    }
+  }
+}

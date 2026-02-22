@@ -1,0 +1,208 @@
+/* ── Root ──────────────────────────────────────────────────────────────────── */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: transparent;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.cw-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f5f3ee;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1a1a1a;
+  border-radius: 14px;
+  box-shadow:
+    0 28px 64px rgba(0,0,0,0.25),
+    0 8px 24px  rgba(0,0,0,0.12),
+    0 0 0 1px   rgba(0,0,0,0.06);
+  overflow: hidden;
+  animation: cw-enter 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes cw-enter {
+  from { opacity: 0; transform: translateY(18px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+
+.cw-header {
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #e8e4dc;
+  border-bottom: 1px solid rgba(0,0,0,0.09);
+  padding: 0 10px 0 14px;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+
+.cw-header:active {
+  cursor: grabbing;
+}
+
+.cw-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.1px;
+}
+
+.cw-icon {
+  color: #5046e4;
+}
+
+.cw-close {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a09a8f;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+.cw-close:hover {
+  background: rgba(0,0,0,0.08);
+  color: #1a1a1a;
+}
+
+/* ── Body ──────────────────────────────────────────────────────────────────── */
+
+.cw-body {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cw-empty {
+  font-size: 13.5px;
+  color: #a09a8f;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.cw-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.cw-stat-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  background: rgba(80,70,228,0.1);
+  color: #5046e4;
+  border: 1px solid rgba(80,70,228,0.18);
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+}
+
+.cw-hint {
+  font-size: 12.5px;
+  color: #7a7568;
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+
+.cw-error {
+  font-size: 11.5px;
+  color: #c53030;
+  background: rgba(197,48,48,0.1);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+/* ── Actions ───────────────────────────────────────────────────────────────── */
+
+.cw-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.cw-btn {
+  flex: 1;
+  padding: 9px 0;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.14s;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cw-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cw-btn-email {
+  background: #5046e4;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(80,70,228,0.25);
+}
+.cw-btn-email:hover:not(.disabled) {
+  background: #3d35c9;
+  box-shadow: 0 3px 14px rgba(80,70,228,0.4);
+}
+.cw-btn-email:active:not(.disabled) {
+  background: #342db5;
+}
+
+.cw-btn-doc {
+  background: #e8e4dc;
+  color: #1a1a1a;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+.cw-btn-doc:hover:not(.disabled) {
+  background: #ded9d0;
+  border-color: rgba(0,0,0,0.15);
+}
+.cw-btn-doc:active:not(.disabled) {
+  background: #d4cec3;
+}
+
+/* ── Spinner ───────────────────────────────────────────────────────────────── */
+
+.cw-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: cw-spin 0.8s linear infinite;
+}
+
+.cw-btn-doc .cw-spinner {
+  border: 2px solid rgba(0,0,0,0.15);
+  border-top-color: currentColor;
+}
+
+@keyframes cw-spin {
+  to { transform: rotate(360deg); }
+}
