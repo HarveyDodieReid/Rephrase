@@ -1279,8 +1279,9 @@ handle('transcribe-audio', async (_, audioBuffer) => {
       authWindow.webContents.send('new-transcript', transcript)
     }
 
-    closeVoiceOverlay()
-    
+    // Close overlay and wait for it to finish so focus returns to the user's text field before we paste
+    await closeVoiceOverlay()
+
     if (currentRecordingMode === 'composer') {
       composerBuffer.push(finalText)
       showComposerWindow()
@@ -1289,7 +1290,7 @@ handle('transcribe-audio', async (_, audioBuffer) => {
 
     return { ok: true, insert: true, text: finalText, raw }
   } catch (err) {
-    closeVoiceOverlay()
+    await closeVoiceOverlay()
     return { ok: false, error: err?.message || String(err) }
   } finally {
     if (tempFile && fs.existsSync(tempFile)) { try { fs.unlinkSync(tempFile) } catch {} }
@@ -1299,7 +1300,8 @@ handle('transcribe-audio', async (_, audioBuffer) => {
 // Insert text at cursor position (no Ctrl+A — just paste at caret)
 handle('insert-text', async (_, text) => {
   clipboard.writeText(text)
-  await sleep(80)
+  // Give the target app time to regain focus after the voice overlay closes
+  await sleep(250)
   await simulatePaste()
 })
 
