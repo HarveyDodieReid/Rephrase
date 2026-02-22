@@ -148,8 +148,8 @@ async function getStore() {
         micDeviceId: 'default',
         fileTagging: true,
         hotkeyRephrase: 'CommandOrControl+Shift+Space',
-        hotkeyVoice: 'Control+Super',
-        hotkeyComposer: 'Alt+Super',
+        hotkeyVoice: process.platform === 'darwin' ? 'Meta+Shift+Space' : 'Control+Super',
+        hotkeyComposer: process.platform === 'darwin' ? 'Meta+Alt' : 'Alt+Super',
         theme: 'light',
         launchAtStartup: false,
         windowX: null,
@@ -502,7 +502,7 @@ let isFixing = false
 let autoFixTimeout = null
 
 function startAutoFix() {
-  if (keyTrackerProcess) return
+  if (process.platform !== 'win32' || keyTrackerProcess) return  // keyTracker.ps1 is Windows only
   
   const scriptPath = path.join(__dirname, 'keyTracker.ps1')
   keyTrackerProcess = spawn('powershell', [
@@ -584,15 +584,9 @@ function scheduleAutoFix() {
 }
 
 async function replaceTypedText(backspaceCount, newText) {
-  const escaped = newText.replace(/'/g, "''")
   clipboard.writeText(newText)
   await sleep(50)
-  await runPowerShell(
-    "Add-Type -AssemblyName System.Windows.Forms;" +
-    "[System.Windows.Forms.SendKeys]::SendWait('+{LEFT " + backspaceCount + "}');" +
-    "Start-Sleep -Milliseconds 50;" +
-    "[System.Windows.Forms.SendKeys]::SendWait('^v')"
-  )
+  await simulateShiftLeftAndPaste(backspaceCount)
 }
 
 function stopAutoFix() {
@@ -732,10 +726,7 @@ handle('generate-composer', async (_, type) => {
     if (finalResult) {
       clipboard.writeText(finalResult)
       await sleep(250)  // give the target window time to become foreground
-      await runPowerShell(
-        'Add-Type -AssemblyName System.Windows.Forms;' +
-        '[System.Windows.Forms.SendKeys]::SendWait(\'^v\')'
-      )
+      await simulatePaste()
     }
 
     return { ok: true }
@@ -836,6 +827,7 @@ function showUpdateNotifWindow(info, startDownload) {
 async function getForegroundAppIcon() {
   currentOverlayIconB64 = null
   currentOverlayAppName = ''
+  if (process.platform !== 'win32') return  // Windows only — uses UIAutomation/System.Drawing
   try {
     const { stdout } = await execAsync(
       'powershell -NoProfile -windowstyle hidden -command ' +
@@ -996,7 +988,8 @@ function startPushToTalk(withReleaseMonitor = true, modifier = 'ctrl', mode = 'v
     mainWindow.webContents.send('voice-start')
 
   // ── 2. Spawn key-release monitor IMMEDIATELY so we never miss a release ───
-  if (withReleaseMonitor) {
+  // (Windows only — Mac uses toggle mode, no hold-to-talk)
+  if (withReleaseMonitor && process.platform === 'win32') {
     keyMonitorProcess = spawn('powershell', [
       '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
       '-File', PS_RELEASE, modifier
@@ -1028,8 +1021,9 @@ function startPushToTalk(withReleaseMonitor = true, modifier = 'ctrl', mode = 'v
 
 // Always-on combo detector — runs for the lifetime of the app.
 // Windows blocks some combos as a globalShortcut so we poll here instead.
+// Mac: use toggle shortcuts (Meta+Shift+Space etc.) via globalShortcut — no combo monitor needed.
 function startComboMonitor() {
-  if (comboMonitorProcess) return
+  if (process.platform !== 'win32' || comboMonitorProcess) return
 
   comboMonitorProcess = spawn('powershell', [
     '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
@@ -1306,21 +1300,35 @@ handle('transcribe-audio', async (_, audioBuffer) => {
 handle('insert-text', async (_, text) => {
   clipboard.writeText(text)
   await sleep(80)
-  await runPowerShell(
-    'Add-Type -AssemblyName System.Windows.Forms;' +
-    '[System.Windows.Forms.SendKeys]::SendWait(\'^v\')'
-  )
+  await simulatePaste()
 })
 
 // ─── Global shortcuts ─────────────────────────────────────────────────────────
+
+// On Mac, Electron uses 'Meta' for Command; UI/store may use 'Super'. Normalize for registration.
+function normalizeShortcutForPlatform(acc) {
+  if (process.platform === 'darwin' && typeof acc === 'string') {
+    return acc.replace(/Super/g, 'Meta')
+  }
+  return acc
+}
 
 async function registerShortcuts() {
   globalShortcut.unregisterAll()
 
   const s   = await getStore()
-  const hrk = s.get('hotkeyRephrase') || 'CommandOrControl+Shift+Space'
-  const hvk = s.get('hotkeyVoice')    || 'Control+Super'
-  const hck = s.get('hotkeyComposer') || 'Alt+Super'
+  const defaultVoice    = process.platform === 'darwin' ? 'Meta+Shift+Space' : 'Control+Super'
+  const defaultComposer = process.platform === 'darwin' ? 'Meta+Alt' : 'Alt+Super'
+  // On Mac, Windows defaults (Control+Super, Alt+Super) don't work — use Mac defaults instead
+  let hvkRaw = s.get('hotkeyVoice')    || defaultVoice
+  let hckRaw = s.get('hotkeyComposer') || defaultComposer
+  if (process.platform === 'darwin') {
+    if (hvkRaw === 'Control+Super') hvkRaw = 'Meta+Shift+Space'
+    if (hckRaw === 'Alt+Super')     hckRaw = 'Meta+Alt'
+  }
+  const hrk = normalizeShortcutForPlatform(s.get('hotkeyRephrase') || 'CommandOrControl+Shift+Space')
+  const hvk = normalizeShortcutForPlatform(hvkRaw)
+  const hck = normalizeShortcutForPlatform(hckRaw)
 
   // ── Rephrase shortcut ────────────────────────────────────────────────────
   const rephraseOk = globalShortcut.register(hrk, async () => {
@@ -1347,13 +1355,14 @@ async function registerShortcuts() {
   })
   if (!rephraseOk) console.warn(`[shortcuts] Could not register rephrase shortcut: ${hrk}`)
 
-  // Start the combo monitor if either voice or composer uses a Windows key combo
-  if (hvk === 'Control+Super' || hck === 'Alt+Super') {
+  // Start the combo monitor if either voice or composer uses Windows key combo (Win only)
+  const usesComboMonitor = process.platform === 'win32' && (hvk === 'Control+Super' || hck === 'Alt+Super')
+  if (usesComboMonitor) {
     startComboMonitor()
   }
 
   // ── Voice shortcut ───────────────────────────────────────────────────────
-  if (hvk !== 'Control+Super') {
+  if (!usesComboMonitor || hvk !== 'Control+Super') {
     // Custom hotkey → toggle (press = start, press again = stop). No Ctrl+Win release monitor.
     const voiceOk = globalShortcut.register(hvk, () => {
       if (!voiceIsRecording) startPushToTalk(false, 'ctrl', 'voice')
@@ -1363,7 +1372,7 @@ async function registerShortcuts() {
   }
 
   // ── Composer shortcut ────────────────────────────────────────────────────
-  if (hck !== 'Alt+Super') {
+  if (!usesComboMonitor || hck !== 'Alt+Super') {
     const composerOk = globalShortcut.register(hck, () => {
       if (!voiceIsRecording) startPushToTalk(false, 'alt', 'composer')
       else stopPushToTalk()
@@ -1945,10 +1954,7 @@ async function doRephrase() {
     await sleep(200)
 
     // ── Step 1: try to copy whatever the user has selected ────────────────
-    await runPowerShell(
-      'Add-Type -AssemblyName System.Windows.Forms;' +
-      '[System.Windows.Forms.SendKeys]::SendWait(\'^c\')'
-    )
+    await simulateCopy()
     await sleep(320)
 
     let originalText = clipboard.readText()
@@ -1957,12 +1963,7 @@ async function doRephrase() {
     if (!originalText?.trim() || originalText === previousClipboard) {
       clipboard.writeText('')          // clear so we can detect a real change
       await sleep(80)
-      await runPowerShell(
-        'Add-Type -AssemblyName System.Windows.Forms;' +
-        '[System.Windows.Forms.SendKeys]::SendWait(\'^a\');' +
-        'Start-Sleep -Milliseconds 150;' +
-        '[System.Windows.Forms.SendKeys]::SendWait(\'^c\')'
-      )
+      await simulateSelectAllAndCopy()
       await sleep(400)
       originalText = clipboard.readText()
     }
@@ -2006,12 +2007,7 @@ async function doRephrase() {
 
     clipboard.writeText(rephrased)
     await sleep(100)
-    await runPowerShell(
-      'Add-Type -AssemblyName System.Windows.Forms;' +
-      '[System.Windows.Forms.SendKeys]::SendWait(\'^a\');' +
-      'Start-Sleep -Milliseconds 80;' +
-      '[System.Windows.Forms.SendKeys]::SendWait(\'^v\')'
-    )
+    await simulateSelectAllAndPaste()
     await sleep(150)
     return { ok: true, original: originalText, rephrased }
   } catch (err) {
@@ -2052,10 +2048,63 @@ async function fadeIn(win, ms = 200) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const isMac = process.platform === 'darwin'
+
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 async function runPowerShell(command) {
   await execAsync(`powershell -NoProfile -windowstyle hidden -command "${command}"`)
+}
+
+// Cross-platform keystroke simulation (paste, copy, select-all+paste, etc.)
+async function simulatePaste() {
+  if (isMac) {
+    await execAsync('osascript -e \'tell application "System Events" to keystroke "v" using command down\'')
+  } else {
+    await runPowerShell('Add-Type -AssemblyName System.Windows.Forms;[System.Windows.Forms.SendKeys]::SendWait(\'^v\')')
+  }
+}
+
+async function simulateCopy() {
+  if (isMac) {
+    await execAsync('osascript -e \'tell application "System Events" to keystroke "c" using command down\'')
+  } else {
+    await runPowerShell('Add-Type -AssemblyName System.Windows.Forms;[System.Windows.Forms.SendKeys]::SendWait(\'^c\')')
+  }
+}
+
+async function simulateSelectAllAndCopy() {
+  if (isMac) {
+    await execAsync('osascript -e \'tell application "System Events" to keystroke "a" using command down\'')
+    await sleep(150)
+    await execAsync('osascript -e \'tell application "System Events" to keystroke "c" using command down\'')
+  } else {
+    await runPowerShell('Add-Type -AssemblyName System.Windows.Forms;[System.Windows.Forms.SendKeys]::SendWait(\'^a\');Start-Sleep -Milliseconds 150;[System.Windows.Forms.SendKeys]::SendWait(\'^c\')')
+  }
+}
+
+async function simulateSelectAllAndPaste() {
+  if (isMac) {
+    await execAsync('osascript -e \'tell application "System Events" to keystroke "a" using command down\'')
+    await sleep(80)
+    await execAsync('osascript -e \'tell application "System Events" to keystroke "v" using command down\'')
+  } else {
+    await runPowerShell('Add-Type -AssemblyName System.Windows.Forms;[System.Windows.Forms.SendKeys]::SendWait(\'^a\');Start-Sleep -Milliseconds 80;[System.Windows.Forms.SendKeys]::SendWait(\'^v\')')
+  }
+}
+
+async function simulateShiftLeftAndPaste(backspaceCount) {
+  if (isMac) {
+    const script = `tell application "System Events"\nrepeat ${backspaceCount} times\nkey code 123 using shift down\ndelay 0.02\nend repeat\nkeystroke "v" using command down\nend tell`
+    await execAsync(`osascript -e ${JSON.stringify(script)}`)
+  } else {
+    await runPowerShell(
+      "Add-Type -AssemblyName System.Windows.Forms;" +
+      "[System.Windows.Forms.SendKeys]::SendWait('+{LEFT " + backspaceCount + "}');" +
+      "Start-Sleep -Milliseconds 50;" +
+      "[System.Windows.Forms.SendKeys]::SendWait('^v')"
+    )
+  }
 }
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
@@ -2095,9 +2144,13 @@ app.whenReady().then(async () => {
   createTray()
   const s = await getStore()
   let launchAtStartup = s.get('launchAtStartup')
-  if (launchAtStartup === undefined && process.platform === 'win32') {
-    const shortcutPath = path.join(getStartupFolderPath(), 'Rephrase.lnk')
-    launchAtStartup = fs.existsSync(shortcutPath)
+  if (launchAtStartup === undefined) {
+    if (process.platform === 'win32') {
+      const shortcutPath = path.join(getStartupFolderPath(), 'Rephrase.lnk')
+      launchAtStartup = fs.existsSync(shortcutPath)
+    } else if (process.platform === 'darwin') {
+      launchAtStartup = app.getLoginItemSettings().openAtLogin
+    }
     s.set('launchAtStartup', launchAtStartup)
   }
   app.setLoginItemSettings({ openAtLogin: !!launchAtStartup })

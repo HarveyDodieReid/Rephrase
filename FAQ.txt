@@ -1,0 +1,26 @@
+FREQUENTLY ASKED QUESTIONS
+==========================
+
+Q: What is Rephrase?
+A: Rephrase is an always-on-top Groq AI rephrase widget for Windows. It lets you record voice, get transcriptions, and use Composer to generate or edit text.
+
+Q: How do I start recording?
+A: Windows: Hold Ctrl + Windows key anywhere to record. Mac: Press Cmd + Shift + Space (toggle: press again to stop). Your transcriptions are saved automatically.
+
+Q: How do I open Composer?
+A: Windows: Hold Alt + Windows key. Mac: Press Cmd + Option to start, press again to stop.
+
+Q: Where are my transcripts stored?
+A: Transcripts are stored locally on your device. We don't store your data in the cloud.
+
+Q: Is my data private?
+A: Yes. Rephrase is local and private. Your recordings and transcripts stay on your computer.
+
+Q: How do I update the app?
+A: When an update is available, a modal will appear on the Dashboard. You can download and install the new version from there.
+
+Q: Can I change the hotkeys?
+A: Hotkey settings can be changed in the Settings section of the app.
+
+Q: Does Rephrase work offline?
+A: Voice transcription and Groq AI features require an internet connection. Transcripts and the app itself work offline once installed.

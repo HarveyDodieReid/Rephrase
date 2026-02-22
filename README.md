@@ -1,22 +1,23 @@
 # Rephrase
 
-Always-on-top Groq AI rephrase widget for Windows. Voice to text, anywhere.
+Always-on-top Groq AI rephrase widget for Windows and macOS. Voice to text, anywhere.
 
 ## What it does
 
 Rephrase is a desktop app that lets you:
 
-- **Voice dictation** — Hold your hotkey (default: Ctrl + Win) to record. Your speech is transcribed and saved as transcripts.
+- **Voice dictation** — Windows: Hold Ctrl + Win to record. Mac: Press Cmd + Shift + Space (toggle). Your speech is transcribed and saved as transcripts.
 - **Read aloud** — Click **Read** on any transcript to hear it spoken using your system’s voice.
 - **Composer** — Queue thoughts while recording and generate drafts or emails with AI.
 - **Rephrase widget** — Rewrite selected text in any app using Groq AI.
-- **Start with PC** — Optional setting to launch Rephrase when you sign in to Windows.
+- **Start at login** — Optional setting to launch Rephrase when you sign in.
 
 The app runs in the system tray. Click the tray icon to open the dashboard.
 
 ## Requirements
 
-- Windows 10/11 (64-bit)
+- **Windows**: Windows 10/11 (64-bit)
+- **Mac**: macOS 10.15+ (Intel or Apple Silicon)
 - [Groq API key](https://console.groq.com/keys) (free)
 - Microphone (for voice features)
 
@@ -29,13 +30,15 @@ The app runs in the system tray. Click the tray icon to open the dashboard.
 
 ## Keyboard shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| Ctrl + Win | Push to talk — hold to record voice |
-| Alt + Win | Composer — queue thoughts for drafts |
-| Ctrl + Shift + Space | Rephrase widget — rewrite selected text |
+| Shortcut | Action | Platform |
+|----------|--------|----------|
+| Ctrl + Win | Push to talk — hold to record voice | Windows |
+| Cmd + Shift + Space | Voice — press to start, press again to stop | Mac |
+| Alt + Win | Composer — hold to queue thoughts | Windows |
+| Cmd + Option | Composer — toggle mode | Mac |
+| Ctrl/Cmd + Shift + Space | Rephrase widget — rewrite selected text | Both |
 
-All shortcuts can be changed in Settings. Single keys (e.g. F5, Space) are supported.
+All shortcuts can be changed in Settings.
 
 ## Development
 
@@ -46,11 +49,17 @@ npm run dev
 
 ### Build
 
+**Windows:**
 ```bash
 npm run build
 ```
-
 Outputs the installer to `dist-electron/Rephrase Setup X.X.X.exe`.
+
+**Mac (Intel & Apple Silicon):**
+```bash
+npm run build:mac
+```
+Outputs `.dmg` and `.zip` to `dist-electron/`.
 
 ### Create release
 

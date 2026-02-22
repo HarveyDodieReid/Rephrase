@@ -548,6 +548,8 @@ function renderHotkey(acc) {
     if (i > 0) out.push(<span key={`sep${i}`} className="hk-sep"> + </span>)
     if (p === 'CommandOrControl' || p === 'Control') {
       out.push(<span key={i}>Ctrl</span>)
+    } else if (p === 'Meta' || (p === 'Super' && window.electronAPI?.platform === 'darwin')) {
+      out.push(<span key={i}>⌘</span>)
     } else if (p === 'Super') {
       out.push(<WinKeyIcon key={i} />)
     } else if (p === 'Return') {
@@ -572,7 +574,7 @@ export const HotkeyRecorder = memo(function HotkeyRecorder({ value, onChange }) 
       if (e.ctrlKey)  mods.push('CommandOrControl')
       if (e.shiftKey) mods.push('Shift')
       if (e.altKey)   mods.push('Alt')
-      if (e.metaKey)  mods.push('Super')
+      if (e.metaKey)  mods.push(window.electronAPI?.platform === 'darwin' ? 'Meta' : 'Super')
       let key = e.code
       if      (key.startsWith('Key'))    key = key.slice(3)
       else if (key.startsWith('Digit'))  key = key.slice(5)
