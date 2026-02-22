@@ -20,6 +20,30 @@ const { promisify } = require('util')
 const execAsync = promisify(exec)
 const isDev = process.env.NODE_ENV === 'development'
 
+// Startup folder shortcut (shows "Rephrase" in Windows Startup)
+function getStartupFolderPath() {
+  const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming')
+  return path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
+}
+
+function setLaunchAtStartupShortcut(enable) {
+  if (process.platform !== 'win32') return
+  const startupDir = getStartupFolderPath()
+  const shortcutPath = path.join(startupDir, 'Rephrase.lnk')
+  if (enable) {
+    const exePath = process.execPath
+    const workDir = path.dirname(exePath)
+    const ps = `$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${shortcutPath.replace(/'/g, "''")}'); $s.TargetPath = '${exePath.replace(/'/g, "''")}'; $s.WorkingDirectory = '${workDir.replace(/'/g, "''")}'; $s.Save()`
+    const tmp = path.join(os.tmpdir(), `rephrase-startup-${Date.now()}.ps1`)
+    fs.writeFileSync(tmp, ps, 'utf8')
+    exec(`powershell -NoProfile -ExecutionPolicy Bypass -File "${tmp}"`, () => {
+      try { fs.unlinkSync(tmp) } catch {}
+    })
+  } else {
+    try { if (fs.existsSync(shortcutPath)) fs.unlinkSync(shortcutPath) } catch {}
+  }
+}
+
 // App icon (white owl on transparent) — taskbar, window, alt-tab
 const appIcon = (() => {
   const root = path.resolve(__dirname, '..')
@@ -69,7 +93,6 @@ function setupAutoUpdater() {
     }
     pendingUpdateInfo = updateInfo
     broadcastUpdateStatus('update-available', updateInfo)
-    showUpdateNotifWindow(updateInfo)
   })
   autoUpdater.on('update-not-available', () => {
     broadcastUpdateStatus('update-not-available', {})
@@ -239,7 +262,10 @@ async function openDashboardWindow() {
   setTimeout(async () => {
     if (isDev) {
       const info = await checkForUpdateFallback()
-      if (info) showUpdateNotifWindow(info)
+      if (info) {
+        pendingUpdateInfo = info
+        broadcastUpdateStatus('update-available', info)
+      }
     } else {
       autoUpdater.checkForUpdates().catch(() => {})
     }
@@ -952,6 +978,15 @@ function startPushToTalk(withReleaseMonitor = true, modifier = 'ctrl', mode = 'v
     return
   }
 
+  // ── Update gate: show error when update is available ─────────────────────
+  if (pendingUpdateInfo) {
+    showVoiceOverlay()
+    sendOverlayStatus('error')
+    playErrorSound()
+    setTimeout(() => closeVoiceOverlay(), 600)
+    return
+  }
+
   if (voiceIsRecording) return
   voiceIsRecording = true
   currentRecordingMode = mode
@@ -1298,6 +1333,14 @@ async function registerShortcuts() {
       setTimeout(() => closeVoiceOverlay(), 600)
       return
     }
+    // Update gate: show error when update is available
+    if (pendingUpdateInfo) {
+      showVoiceOverlay()
+      sendOverlayStatus('error')
+      playErrorSound()
+      setTimeout(() => closeVoiceOverlay(), 600)
+      return
+    }
     pushStatus('loading', 'Rewriting…')
     const result = await doRephrase()
     pushStatus(result.ok ? 'success' : 'error', result.ok ? 'Done!' : result.error)
@@ -1468,7 +1511,10 @@ handle('switch-to-dashboard', async (event, session) => {
   setTimeout(async () => {
     if (isDev) {
       const info = await checkForUpdateFallback()
-      if (info) showUpdateNotifWindow(info)
+      if (info) {
+        pendingUpdateInfo = info
+        broadcastUpdateStatus('update-available', info)
+      }
     } else {
       autoUpdater.checkForUpdates().catch(() => {})
     }
@@ -1556,7 +1602,9 @@ handle('get-update-info', () => pendingUpdateInfo)
 // opts: { startDownload?: boolean } — if true, starts download once window is ready (prod only)
 handle('open-update-window', (_, info, opts) => {
   if (info) pendingUpdateInfo = info
-  if (pendingUpdateInfo) showUpdateNotifWindow(pendingUpdateInfo, opts?.startDownload)
+  if (pendingUpdateInfo && opts?.startDownload && !isDev) {
+    autoUpdater.downloadUpdate().catch(() => {})
+  }
 })
 
 // Called by the notif renderer to close its own window
@@ -1641,6 +1689,7 @@ handle('save-settings', async (_, data) => {
   if (data?.launchAtStartup !== undefined) {
     s.set('launchAtStartup', data.launchAtStartup)
     app.setLoginItemSettings({ openAtLogin: !!data.launchAtStartup })
+    setLaunchAtStartupShortcut(!!data.launchAtStartup)
   }
   set('hotkeyRephrase', data?.hotkeyRephrase)
   set('hotkeyVoice', data?.hotkeyVoice)
@@ -2048,8 +2097,14 @@ app.whenReady().then(async () => {
   await createWindow()
   createTray()
   const s = await getStore()
-  const launchAtStartup = s.get('launchAtStartup')
+  let launchAtStartup = s.get('launchAtStartup')
+  if (launchAtStartup === undefined && process.platform === 'win32') {
+    const shortcutPath = path.join(getStartupFolderPath(), 'Rephrase.lnk')
+    launchAtStartup = fs.existsSync(shortcutPath)
+    s.set('launchAtStartup', launchAtStartup)
+  }
   app.setLoginItemSettings({ openAtLogin: !!launchAtStartup })
+  setLaunchAtStartupShortcut(!!launchAtStartup)
   if (process.platform === 'win32') {
     app.setUserTasks([
       { program: process.execPath, arguments: '--open-settings', iconPath: process.execPath, iconIndex: 0, title: 'Rephrase Settings', description: 'Open Rephrase settings' },

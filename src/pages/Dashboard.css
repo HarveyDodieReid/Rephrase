@@ -295,66 +295,153 @@
 .db-wc:hover       { background: rgba(0,0,0,0.08); color: #1a1a1a; }
 .db-wc-close:hover { background: #e81123; color: #fff; }
 
-/* ─── Sticky update notification (toast style) ─────────────────────────────── */
+/* ─── Blocking update modal (black/white theme) ─────────────────────────────── */
 
-.db-update-sticky {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  background: #1a1a1a;
-  color: rgba(255,255,255,0.92);
-  font-size: 12.5px;
-  font-weight: 500;
-  letter-spacing: -0.1px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
-  border-bottom: 1px solid rgba(0,0,0,0.08);
-}
-.db-update-sticky svg:first-child { flex-shrink: 0; opacity: 0.85; }
-.db-update-sticky-text { flex: 1; }
-.db-update-sticky-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  background: #fff;
-  color: #1a1a1a;
-  border: none;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.12s, opacity 0.12s;
-}
-.db-update-sticky-btn:hover { background: #f0ede6; }
-.db-update-sticky-dismiss {
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
+.db-update-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255,255,255,0.5);
-  cursor: pointer;
-  transition: color 0.12s, background 0.12s;
+  z-index: 10000;
+  animation: db-update-fade-in 0.2s ease;
 }
-.db-update-sticky-dismiss:hover { color: #fff; background: rgba(255,255,255,0.12); }
 
-.db-root[data-theme="dark"] .db-update-sticky {
-  background: #2c2c2e;
-  border-bottom-color: rgba(255,255,255,0.08);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+.db-update-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 90%;
+  width: 360px;
+  background: #ffffff;
+  color: #1a1a1a;
+  padding: 28px 24px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 24px 48px rgba(0,0,0,0.15);
+  animation: db-update-scale-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.db-root[data-theme="dark"] .db-update-sticky-btn {
-  background: #0a84ff;
-  color: #fff;
+
+.db-update-modal-icon {
+  margin-bottom: 16px;
+  color: #1a1a1a;
 }
-.db-root[data-theme="dark"] .db-update-sticky-btn:hover { background: #409cff; }
-.db-root[data-theme="dark"] .db-update-sticky-dismiss:hover { background: rgba(255,255,255,0.1); }
+
+.db-update-modal-icon svg {
+  display: block;
+}
+
+.db-update-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+.db-update-modal-text {
+  font-size: 13px;
+  color: #4a4a4a;
+  line-height: 1.5;
+  margin: 0 0 16px;
+  text-align: center;
+}
+
+.db-update-modal-error {
+  font-size: 11px;
+  color: #c53030;
+  margin: -8px 0 12px;
+  text-align: center;
+}
+
+.db-update-modal-progress {
+  width: 100%;
+  height: 6px;
+  background: rgba(0,0,0,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.db-update-modal-progress-fill {
+  height: 100%;
+  background: #1a1a1a;
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
+
+.db-update-modal-btn {
+  padding: 10px 24px;
+  background: #1a1a1a;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 13px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.14s, color 0.14s, opacity 0.14s;
+}
+
+.db-update-modal-btn:hover:not(:disabled) {
+  background: #333;
+}
+
+.db-update-modal-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+@keyframes db-update-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes db-update-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.db-root[data-theme="dark"] .db-update-modal-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.db-root[data-theme="dark"] .db-update-modal {
+  background: #1a1a1a;
+  color: #f5f5f5;
+  border-color: rgba(255,255,255,0.1);
+}
+
+.db-root[data-theme="dark"] .db-update-modal-icon {
+  color: #f5f5f5;
+}
+
+.db-root[data-theme="dark"] .db-update-modal-title {
+  color: #f5f5f5;
+}
+
+.db-root[data-theme="dark"] .db-update-modal-text {
+  color: rgba(255,255,255,0.75);
+}
+
+.db-root[data-theme="dark"] .db-update-modal-progress {
+  background: rgba(255,255,255,0.15);
+}
+
+.db-root[data-theme="dark"] .db-update-modal-progress-fill {
+  background: #fff;
+}
+
+.db-root[data-theme="dark"] .db-update-modal-btn {
+  background: #fff;
+  color: #1a1a1a;
+}
+
+.db-root[data-theme="dark"] .db-update-modal-btn:hover:not(:disabled) {
+  background: #e5e5e5;
+}
 
 /* ─── Body ────────────────────────────────────────────────────────────────── */
 
@@ -1312,50 +1399,6 @@
   border-radius: 0 0 14px 0;
 }
 
-/* ─── Update — sidebar "Update Now" button ────────────────────────────────── */
-
-.db-update-now-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1.5px solid rgba(80,70,228,0.25);
-  background: rgba(80,70,228,0.07);
-  border-radius: 9px;
-  color: #5046e4;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.14s, border-color 0.14s;
-  position: relative;
-  text-align: left;
-  margin-bottom: 6px;
-  font-family: inherit;
-}
-.db-update-now-btn:hover {
-  background: rgba(80,70,228,0.13);
-  border-color: rgba(80,70,228,0.45);
-}
-.db-update-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #5046e4;
-  margin-left: auto;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 3px rgba(80,70,228,0.18);
-  animation: db-dot-pulse 2s ease infinite;
-}
-@keyframes db-dot-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(80,70,228,0.18); }
-  50%       { box-shadow: 0 0 0 5px rgba(80,70,228,0.08); }
-}
-.db-version-new {
-  color: #5046e4;
-  font-weight: 600;
-}
-
 /* ─── Update — home page banner card ─────────────────────────────────────── */
 
 .db-update-banner {
@@ -1449,4 +1492,4 @@
   background: rgba(255,255,255,0.08);
 }
 
-/* Update notification lives in its own separate BrowserWindow (UpdateNotif.jsx/css) */
+/* Update modal is shown on Dashboard when update is available */

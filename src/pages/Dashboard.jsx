@@ -66,6 +66,9 @@ export default function Dashboard() {
   const [updateInfo,   setUpdateInfo]   = useState(null)   // null | { version, url, notes }
   const [appVersion,   setAppVersion]   = useState('…')
   const [updateDownloaded, setUpdateDownloaded] = useState(false)
+  const [updateDownloading, setUpdateDownloading] = useState(false)
+  const [updateProgress, setUpdateProgress] = useState(0)
+  const [updateError, setUpdateError] = useState(null)
   const [showSplash,   setShowSplash]   = useState(true)
   const [theme,        setTheme]        = useState('light')
   const [scheme,       setScheme]       = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -92,10 +95,27 @@ export default function Dashboard() {
       if (info) setUpdateInfo(info)
     })
 
-    const u1 = window.electronAPI?.onUpdateAvailable?.(i => { setUpdateInfo(i); setUpdateDownloaded(false) })
-    const u2 = window.electronAPI?.onUpdateDownloaded?.(() => setUpdateDownloaded(true))
+    const u1 = window.electronAPI?.onUpdateAvailable?.(i => {
+      setUpdateInfo(i)
+      setUpdateDownloaded(false)
+      setUpdateDownloading(false)
+      setUpdateError(null)
+    })
+    const u2 = window.electronAPI?.onUpdateDownloaded?.(() => {
+      setUpdateDownloaded(true)
+      setUpdateDownloading(false)
+    })
+    const u3 = window.electronAPI?.onUpdateDownloadProgress?.(p => {
+      setUpdateDownloading(true)
+      setUpdateProgress(p?.percent ?? 0)
+      setUpdateError(null)
+    })
+    const u4 = window.electronAPI?.onUpdateError?.(e => {
+      setUpdateDownloading(false)
+      setUpdateError(e?.message ?? 'Download failed')
+    })
 
-    return () => { c1?.(); c2?.(); c3?.(); u1?.(); u2?.() }
+    return () => { c1?.(); c2?.(); c3?.(); u1?.(); u2?.(); u3?.(); u4?.() }
   }, [])
 
   // Prefers-color-scheme for system theme
@@ -173,13 +193,27 @@ export default function Dashboard() {
     await window.electronAPI?.signOut?.()
   }
 
-  const openUpdate = () => {
+  const handleUpdateDownload = async () => {
     if (updateDownloaded && window.electronAPI?.installUpdate) {
       window.electronAPI.installUpdate()
       return
     }
-    // Open update window; main process starts download once window is ready (no external browser)
-    window.electronAPI?.openUpdateWindow?.(updateInfo, { startDownload: true })
+    if (updateError && updateInfo?.url && window.electronAPI?.openExternal) {
+      window.electronAPI.openExternal(updateInfo.url)
+      return
+    }
+    if (window.electronAPI?.downloadUpdate) {
+      setUpdateDownloading(true)
+      setUpdateError(null)
+      const res = await window.electronAPI.downloadUpdate()
+      if (res?.devMode) {
+        setUpdateDownloading(false)
+        setUpdateError('In-app updates require the installed app. Download the installer from the releases page.')
+        return
+      }
+    } else if (updateInfo?.url && window.electronAPI?.openExternal) {
+      window.electronAPI.openExternal(updateInfo.url)
+    }
   }
 
   const showToast = (msg) => {
@@ -247,22 +281,39 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Sticky update notification (toast style, always visible when update available) ─ */}
+      {/* ── Blocking update modal (black/white, cannot dismiss) ───────────────── */}
       {updateInfo && (
-        <div className="db-update-sticky">
-          <UpdateIcon />
-          <span className="db-update-sticky-text">
-            {updateDownloaded ? 'Update ready — restart to install' : `New version v${updateInfo.version} available`}
-          </span>
-          <button className="db-update-sticky-btn" onClick={openUpdate}>
-            {updateDownloaded ? 'Restart to update' : 'Update Now'}
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 6h8M6 2l4 4-4 4"/>
-            </svg>
-          </button>
-          <button className="db-update-sticky-dismiss" onClick={() => setUpdateInfo(null)} aria-label="Dismiss">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-          </button>
+        <div className="db-update-modal-overlay">
+          <div className="db-update-modal">
+            <div className="db-update-modal-icon">
+              <UpdateDownloadIcon />
+            </div>
+            <h2 className="db-update-modal-title">Update Available</h2>
+            <p className="db-update-modal-text">
+              A new version of Rephrase is ready. Download and install to get the latest features and improvements.
+            </p>
+            {updateError && (
+              <p className="db-update-modal-error">{updateError}</p>
+            )}
+            {updateDownloading && (
+              <div className="db-update-modal-progress">
+                <div className="db-update-modal-progress-fill" style={{ width: `${updateProgress}%` }} />
+              </div>
+            )}
+            <button
+              className="db-update-modal-btn"
+              onClick={handleUpdateDownload}
+              disabled={updateDownloading}
+            >
+              {updateDownloaded
+                ? 'Restart to install'
+                : updateError
+                  ? 'Download manually'
+                  : updateDownloading
+                    ? `Downloading… ${Math.round(updateProgress)}%`
+                    : 'Download Now'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -323,21 +374,11 @@ export default function Dashboard() {
 
             {/* Sidebar footer */}
             <div className="db-sidebar-footer">
-              {updateInfo && (
-                <button className="db-update-now-btn" onClick={openUpdate}>
-                  <UpdateIcon />
-                  {updateDownloaded ? 'Restart to update' : 'Update Now'}
-                  <span className="db-update-dot" />
-                </button>
-              )}
               <button className="db-signout-btn" onClick={signOut}>
                 <SignOutIcon />
                 Close
               </button>
-              <span className="db-version">
-                v{appVersion}
-                {updateInfo && <span className="db-version-new"> → v{updateInfo.version}</span>}
-              </span>
+              <span className="db-version">v{appVersion}</span>
             </div>
           </aside>
         </div>
@@ -597,6 +638,16 @@ function UpdateIcon() {
       <polyline points="23 4 23 10 17 10"/>
       <polyline points="1 20 1 14 7 14"/>
       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </svg>
+  )
+}
+
+function UpdateDownloadIcon() {
+  return (
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
     </svg>
   )
 }
