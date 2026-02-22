@@ -19,6 +19,9 @@
 ### Fixes
 - Start-with-Windows uses Startup folder shortcut for reliable behavior
 
+### Removed
+- Hands-free mode shortcut (removed from Settings)
+
 ## v1.2.0 (2026-02-22)
 
 - Redesigned Groq API key field with card layout and link to get API key
