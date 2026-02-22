@@ -64,6 +64,26 @@
 [data-theme="dark"] .sw-row-desc { color: #98989d; }
 [data-theme="dark"] .sw-divider { background: rgba(255,255,255,0.08); }
 
+[data-theme="dark"] .sw-groq-card {
+  background: linear-gradient(135deg, rgba(255,106,20,0.12) 0%, rgba(255,106,20,0.04) 100%);
+  border-color: rgba(255,106,20,0.3);
+}
+[data-theme="dark"] .sw-groq-label { color: #f5f5f7; }
+[data-theme="dark"] .sw-groq-desc { color: #98989d; }
+[data-theme="dark"] .sw-groq-input {
+  background: #3a3a3c;
+  border-color: rgba(255,255,255,0.12);
+  color: #f5f5f7;
+}
+[data-theme="dark"] .sw-groq-input::placeholder { color: #6e6e73; }
+[data-theme="dark"] .sw-groq-input:hover { border-color: rgba(255,255,255,0.2); }
+[data-theme="dark"] .sw-groq-input:focus {
+  border-color: #FF6A14;
+  box-shadow: 0 0 0 3px rgba(255,106,20,0.2);
+}
+[data-theme="dark"] .sw-groq-link { color: #ff8c42; }
+[data-theme="dark"] .sw-groq-link:hover { color: #ffa366; }
+
 [data-theme="dark"] .chip {
   background: #3a3a3c;
   border-color: rgba(255,255,255,0.12);
@@ -459,6 +479,97 @@
   height: 1px;
   background: rgba(0,0,0,0.07);
   margin: 0 20px;
+}
+
+/* ─── Groq API key card ────────────────────────────────────────────────────── */
+
+.sw-groq-card {
+  padding: 18px 20px;
+  background: linear-gradient(135deg, rgba(255,106,20,0.06) 0%, rgba(255,106,20,0.02) 100%);
+  border: 1px solid rgba(255,106,20,0.2);
+  border-radius: 12px;
+  margin: 0 20px 16px;
+}
+
+.sw-groq-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sw-groq-header svg {
+  flex-shrink: 0;
+}
+
+.sw-groq-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sw-groq-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.sw-groq-desc {
+  font-size: 12px;
+  color: #7a7568;
+  line-height: 1.4;
+}
+
+.sw-groq-input-wrap {
+  margin-bottom: 10px;
+}
+
+.sw-groq-input {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1a1a;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sw-groq-input::placeholder {
+  color: #9a948a;
+}
+
+.sw-groq-input:hover {
+  border-color: rgba(0,0,0,0.2);
+}
+
+.sw-groq-input:focus {
+  border-color: #FF6A14;
+  box-shadow: 0 0 0 3px rgba(255,106,20,0.15);
+}
+
+.sw-groq-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #FF6A14;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s, opacity 0.15s;
+}
+
+.sw-groq-link:hover {
+  color: #e55d0a;
+}
+
+.sw-groq-link svg {
+  flex-shrink: 0;
+  opacity: 0.9;
 }
 
 /* ─── Chips ────────────────────────────────────────────────────────────────── */

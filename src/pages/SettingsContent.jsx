@@ -136,19 +136,33 @@ export default function SettingsContent({ section, onShowToast, onThemeChange })
 
         {section === 'general' && (
           <div className="sw-section">
-            <SettingRow
-              label="Groq API Key"
-              desc="Required for rephrase, voice, and composer. Get one at console.groq.com"
-            >
-              <input
-                type="password"
-                className="sw-input"
-                placeholder="gsk_..."
-                value={groqApiKey}
-                onChange={e => setGroqApiKey(e.target.value)}
-                autoComplete="off"
-              />
-            </SettingRow>
+            <div className="sw-groq-card">
+              <div className="sw-groq-header">
+                <GroqLogo />
+                <div className="sw-groq-title">
+                  <span className="sw-groq-label">Groq API Key</span>
+                  <span className="sw-groq-desc">Required for rephrase, voice, and composer</span>
+                </div>
+              </div>
+              <div className="sw-groq-input-wrap">
+                <input
+                  type="password"
+                  className="sw-groq-input"
+                  placeholder="gsk_..."
+                  value={groqApiKey}
+                  onChange={e => setGroqApiKey(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+              <a
+                className="sw-groq-link"
+                href="#"
+                onClick={(e) => { e.preventDefault(); window.electronAPI?.openExternal?.('https://console.groq.com/keys'); }}
+              >
+                Get API key
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6h8M6 2l4 4-4 4"/></svg>
+              </a>
+            </div>
             <Divider />
             <SettingRow
               label="Theme"
