@@ -1,0 +1,39 @@
+# Add Mac builds to existing v1.0.0 release
+# Run manually: Actions → Add Mac to Release → Run workflow
+
+name: Add Mac to Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-upload-mac:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build:mac
+
+      - run: |
+          VERSION=$(node -p "require('./package.json').version")
+          cd dist-electron
+          for f in Rephrase-*-arm64.dmg; do [ -f "$f" ] && mv "$f" "Rephrase-Setup-$VERSION-mac-arm64.dmg"; done
+          for f in Rephrase-*-x64.dmg; do [ -f "$f" ] && mv "$f" "Rephrase-Setup-$VERSION-mac-x64.dmg"; done
+          for f in Rephrase-*-arm64-mac.zip; do [ -f "$f" ] && mv "$f" "Rephrase-Setup-$VERSION-mac-arm64.zip"; done
+          for f in Rephrase-*-x64-mac.zip; do [ -f "$f" ] && mv "$f" "Rephrase-Setup-$VERSION-mac-x64.zip"; done
+          ls -la
+
+      - run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release upload "v$VERSION" dist-electron/Rephrase-Setup-*-mac-*.dmg dist-electron/Rephrase-Setup-*-mac-*.zip --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
