@@ -5,7 +5,8 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "node scripts/icon-white.js 2>nul & concurrently -k \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
-    "build": "node scripts/icon-white.js && npx png-to-ico Logo-white.png > Logo.ico 2>nul && vite build && electron-packager . Rephrase --platform=win32 --arch=x64 --out=dist-electron --overwrite --icon=Logo.ico --ignore=dist-electron --ignore=node_modules/.cache",
+    "build": "node scripts/icon-white.js && vite build && electron-builder --win --x64",
+    "build:dir": "node scripts/icon-white.js && npx png-to-ico Logo-white.png > Logo.ico 2>nul && vite build && electron-packager . Rephrase --platform=win32 --arch=x64 --out=dist-electron --overwrite --icon=Logo.ico --ignore=dist-electron --ignore=node_modules/.cache",
     "preview": "vite preview"
   },
   "devDependencies": {
@@ -23,6 +24,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.96.0",
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.3",
     "groq-sdk": "^0.9.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -32,6 +34,11 @@
     "productName": "Rephrase",
     "copyright": "Copyright © 2026",
     "asar": false,
+    "publish": {
+      "provider": "github",
+      "owner": "HarveyDodieReid",
+      "repo": "Rephrase"
+    },
     "directories": {
       "output": "dist-electron",
       "buildResources": "build-resources"
@@ -44,14 +51,19 @@
     "win": {
       "target": [
         {
-          "target": "dir",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
         }
       ],
       "icon": "Logo.png",
-      "requestedExecutionLevel": "asInvoker"
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }

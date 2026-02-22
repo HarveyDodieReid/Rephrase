@@ -62,6 +62,7 @@ export default function Dashboard() {
   const [searchQuery,  setSearchQuery]  = useState('')
   const [toast,        setToast]        = useState(null)
   const [updateInfo,   setUpdateInfo]   = useState(null)   // null | { version, url, notes }
+  const [updateDownloaded, setUpdateDownloaded] = useState(false)
   const [showSplash,   setShowSplash]   = useState(true)
   const [theme,        setTheme]        = useState('light')
   const [scheme,       setScheme]       = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -87,7 +88,10 @@ export default function Dashboard() {
       if (info) setUpdateInfo(info)
     })
 
-    return () => { c1?.(); c2?.(); c3?.() }
+    const u1 = window.electronAPI?.onUpdateAvailable?.(i => { setUpdateInfo(i); setUpdateDownloaded(false) })
+    const u2 = window.electronAPI?.onUpdateDownloaded?.(() => setUpdateDownloaded(true))
+
+    return () => { c1?.(); c2?.(); c3?.(); u1?.(); u2?.() }
   }, [])
 
   // Prefers-color-scheme for system theme
@@ -146,7 +150,13 @@ export default function Dashboard() {
   }
 
   const openUpdate = () => {
-    if (updateInfo?.url) window.electronAPI?.openExternal?.(updateInfo.url)
+    if (updateDownloaded && window.electronAPI?.installUpdate) {
+      window.electronAPI.installUpdate()
+    } else if (window.electronAPI?.downloadUpdate) {
+      window.electronAPI.downloadUpdate()
+    } else if (updateInfo?.url && window.electronAPI?.openExternal) {
+      window.electronAPI.openExternal(updateInfo.url)
+    }
   }
 
   const showToast = (msg) => {
@@ -218,9 +228,11 @@ export default function Dashboard() {
       {updateInfo && (
         <div className="db-update-sticky">
           <UpdateIcon />
-          <span className="db-update-sticky-text">New version v{updateInfo.version} available</span>
+          <span className="db-update-sticky-text">
+            {updateDownloaded ? 'Update ready — restart to install' : `New version v${updateInfo.version} available`}
+          </span>
           <button className="db-update-sticky-btn" onClick={openUpdate}>
-            Update Now
+            {updateDownloaded ? 'Restart to update' : 'Update Now'}
             <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M2 6h8M6 2l4 4-4 4"/>
             </svg>
@@ -291,7 +303,7 @@ export default function Dashboard() {
               {updateInfo && (
                 <button className="db-update-now-btn" onClick={openUpdate}>
                   <UpdateIcon />
-                  Update Now
+                  {updateDownloaded ? 'Restart to update' : 'Update Now'}
                   <span className="db-update-dot" />
                 </button>
               )}

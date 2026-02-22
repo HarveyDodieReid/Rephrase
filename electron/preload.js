@@ -104,13 +104,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUserAvatar:   () => ipcRenderer.invoke('get-user-avatar'),
 
   // ── Updates ───────────────────────────────────────────────────────────────
-  getAppVersion:  () => ipcRenderer.invoke('get-app-version'),
-  // Returns null (no update) or { version, url, notes }
-  checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
-  // Used by the floating UpdateNotif window to get the stored update info
-  getUpdateInfo:     () => ipcRenderer.invoke('get-update-info'),
-  // Used by the floating UpdateNotif window to close itself
-  closeUpdateNotif:  () => ipcRenderer.invoke('close-update-notif'),
+  getAppVersion:   () => ipcRenderer.invoke('get-app-version'),
+  // Returns null (no update) or { version, url, notes }; in prod, result comes via events
+  checkForUpdate:  () => ipcRenderer.invoke('check-for-update'),
+  downloadUpdate:  () => ipcRenderer.invoke('download-update'),
+  installUpdate:   () => ipcRenderer.invoke('install-update'),
+  getUpdateInfo:   () => ipcRenderer.invoke('get-update-info'),
+  closeUpdateNotif: () => ipcRenderer.invoke('close-update-notif'),
+  onUpdateAvailable:       (cb) => { ipcRenderer.on('update-available', (_, d) => cb(d)); return () => ipcRenderer.removeAllListeners('update-available') },
+  onUpdateNotAvailable:    (cb) => { ipcRenderer.on('update-not-available', () => cb()); return () => ipcRenderer.removeAllListeners('update-not-available') },
+  onUpdateDownloadProgress:(cb) => { ipcRenderer.on('update-download-progress', (_, d) => cb(d)); return () => ipcRenderer.removeAllListeners('update-download-progress') },
+  onUpdateDownloaded:      (cb) => { ipcRenderer.on('update-downloaded', (_, d) => cb(d)); return () => ipcRenderer.removeAllListeners('update-downloaded') },
 
   // ── Composer ──────────────────────────────────────────────────────────────
   getComposerBuffer: () => ipcRenderer.invoke('get-composer-buffer'),

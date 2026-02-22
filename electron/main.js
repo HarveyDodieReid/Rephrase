@@ -30,50 +30,78 @@ const appIcon = (() => {
   return img.isEmpty() ? null : img
 })()
 
-// ─── Update check ─────────────────────────────────────────────────────────────
-const CURRENT_VERSION = '1.0.0'
-// Point this at your GitHub releases API (or any JSON endpoint that returns
-// { tag_name, html_url, body } in GitHub release format).
-const UPDATE_FEED_URL = 'https://api.github.com/repos/OWNER/REPO/releases/latest'
+// ─── Auto-updater (electron-updater) ──────────────────────────────────────────
+const { autoUpdater } = require('electron-updater')
+const CURRENT_VERSION = app.getVersion()
 
-function parseSemver(v) {
-  return (v || '').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0)
-}
-function isNewer(latest, current) {
-  const [lMa, lMi, lPa] = parseSemver(latest)
-  const [cMa, cMi, cPa] = parseSemver(current)
-  if (lMa !== cMa) return lMa > cMa
-  if (lMi !== cMi) return lMi > cMi
-  return lPa > cPa
-}
-
-async function checkForUpdate() {
-  // ── DEV / TESTING: always return a fake update so the UI can be previewed ──
-  return {
-    version: '1.1.0',
-    url:     'https://github.com/OWNER/REPO/releases',
-    notes:   'Performance improvements, new file tagging formats, and bug fixes.',
+// Broadcast update status to all windows
+function broadcastUpdateStatus(channel, data) {
+  const wins = BrowserWindow.getAllWindows()
+  for (const w of wins) {
+    if (w && !w.isDestroyed() && w.webContents && !w.webContents.isDestroyed()) {
+      try { w.webContents.send(channel, data) } catch {}
+    }
   }
+}
 
-  // ── PRODUCTION (uncomment when you have a real GitHub releases endpoint) ──
-  // try {
-  //   const res = await fetch(UPDATE_FEED_URL, {
-  //     headers: { 'User-Agent': 'rephrase-widget-updater', Accept: 'application/vnd.github+json' },
-  //     signal: AbortSignal.timeout(8000),
-  //   })
-  //   if (!res.ok) return null
-  //   const data = await res.json()
-  //   const latestVersion = (data.tag_name || '').replace(/^v/, '')
-  //   if (!latestVersion || !isNewer(latestVersion, CURRENT_VERSION)) return null
-  //   return {
-  //     version:  latestVersion,
-  //     url:      data.html_url || UPDATE_FEED_URL,
-  //     notes:    (data.body || '').split('\n').slice(0, 3).join(' ').slice(0, 160) ||
-  //               'New features and improvements.',
-  //   }
-  // } catch {
-  //   return null
-  // }
+function setupAutoUpdater() {
+  if (isDev) {
+    // In dev, autoUpdater won't work; skip or use dev-app-update.yml for testing
+    return
+  }
+  autoUpdater.autoDownload = false   // let user trigger download
+  autoUpdater.autoInstallOnAppQuit = true
+
+  autoUpdater.on('checking-for-update', () => {
+    broadcastUpdateStatus('update-checking', {})
+  })
+  autoUpdater.on('update-available', (info) => {
+    const notes = typeof info.releaseNotes === 'string'
+      ? info.releaseNotes
+      : Array.isArray(info.releaseNotes)
+        ? (info.releaseNotes[0]?.note || '').slice(0, 200)
+        : 'New features and improvements.'
+    const updateInfo = {
+      version:  info.version,
+      url:      `https://github.com/HarveyDodieReid/Rephrase/releases/tag/v${info.version}`,
+      notes:    notes || 'New features and improvements.',
+      _raw:     info,
+    }
+    pendingUpdateInfo = updateInfo
+    broadcastUpdateStatus('update-available', updateInfo)
+    showUpdateNotifWindow(updateInfo)
+  })
+  autoUpdater.on('update-not-available', () => {
+    broadcastUpdateStatus('update-not-available', {})
+  })
+  autoUpdater.on('download-progress', (progress) => {
+    broadcastUpdateStatus('update-download-progress', {
+      percent:  progress.percent,
+      bytesPerSecond: progress.bytesPerSecond,
+      transferred: progress.transferred,
+      total: progress.total,
+    })
+  })
+  autoUpdater.on('update-downloaded', (info) => {
+    pendingUpdateDownloaded = true
+    broadcastUpdateStatus('update-downloaded', { version: info.version })
+  })
+  autoUpdater.on('error', (err) => {
+    console.error('[autoUpdater]', err)
+    broadcastUpdateStatus('update-error', { message: err.message })
+  })
+}
+
+let pendingUpdateDownloaded = false
+
+// Fallback check for dev mode (fake update for UI preview)
+async function checkForUpdateFallback() {
+  if (!isDev) return null
+  return {
+    version:  '1.1.0',
+    url:      'https://github.com/HarveyDodieReid/Rephrase/releases',
+    notes:    'Performance improvements, new file tagging formats, and bug fixes.',
+  }
 }
 
 // Safe IPC handler — removes any existing handler before registering.
@@ -208,8 +236,12 @@ async function openDashboardWindow() {
 
   // Auto-check for updates 4 s after the dashboard is shown
   setTimeout(async () => {
-    const info = await checkForUpdate()
-    if (info) showUpdateNotifWindow(info)
+    if (isDev) {
+      const info = await checkForUpdateFallback()
+      if (info) showUpdateNotifWindow(info)
+    } else {
+      autoUpdater.checkForUpdates().catch(() => {})
+    }
   }, 4000)
 }
 
@@ -1425,8 +1457,12 @@ handle('switch-to-dashboard', async (event, session) => {
 
   // Auto-check for updates 4 s after the dashboard finishes loading
   setTimeout(async () => {
-    const info = await checkForUpdate()
-    if (info) showUpdateNotifWindow(info)
+    if (isDev) {
+      const info = await checkForUpdateFallback()
+      if (info) showUpdateNotifWindow(info)
+    } else {
+      autoUpdater.checkForUpdates().catch(() => {})
+    }
   }, 4000)
 
   return { ok: true }
@@ -1483,8 +1519,22 @@ handle('set-focusable', (_, focusable) => {
 handle('open-external',     (_, url) => shell.openExternal(url))
 
 handle('check-for-update', async () => {
-  const info = await checkForUpdate()
-  return info   // null = no update, { version, url, notes } = update available
+  if (isDev) {
+    return await checkForUpdateFallback()
+  }
+  autoUpdater.checkForUpdates().catch(() => {})
+  return null   // result comes via update-available / update-not-available events
+})
+
+handle('download-update', async () => {
+  if (!isDev) autoUpdater.downloadUpdate().catch(() => {})
+  return { ok: true }
+})
+
+handle('install-update', () => {
+  if (!isDev && pendingUpdateDownloaded) {
+    autoUpdater.quitAndInstall(false, true)
+  }
 })
 
 handle('get-app-version', () => CURRENT_VERSION)
@@ -1972,6 +2022,7 @@ app.whenReady().then(async () => {
     })
   })
 
+  setupAutoUpdater()
   await createWindow()
   createTray()
   if (process.platform === 'win32') {
