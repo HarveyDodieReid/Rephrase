@@ -46,7 +46,12 @@ $baseName = "Rephrase-Setup-$version"
 $assets = @(
     @{ Path = "dist-electron\Rephrase Setup $version.exe"; Name = "$baseName.exe" },
     @{ Path = "dist-electron\latest.yml"; Name = "latest.yml" },
-    @{ Path = "dist-electron\Rephrase Setup $version.exe.blockmap"; Name = "$baseName.exe.blockmap" }
+    @{ Path = "dist-electron\Rephrase Setup $version.exe.blockmap"; Name = "$baseName.exe.blockmap" },
+    # Mac (build with: npm run build:mac on macOS)
+    @{ Path = "dist-electron\Rephrase-$version-arm64.dmg"; Name = "$baseName-mac-arm64.dmg" },
+    @{ Path = "dist-electron\Rephrase-$version-x64.dmg"; Name = "$baseName-mac-x64.dmg" },
+    @{ Path = "dist-electron\Rephrase-$version-arm64-mac.zip"; Name = "$baseName-mac-arm64.zip" },
+    @{ Path = "dist-electron\Rephrase-$version-x64-mac.zip"; Name = "$baseName-mac-x64.zip" }
 )
 
 foreach ($a in $assets) {
