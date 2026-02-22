@@ -11,6 +11,8 @@ if (-not $token) {
 
 $pkg = Get-Content package.json | ConvertFrom-Json
 $version = $pkg.version
+$owner = $pkg.build.publish.owner
+$repo  = $pkg.build.publish.repo
 $tag = "v$version"
 $headers = @{
     Authorization = "Bearer $token"

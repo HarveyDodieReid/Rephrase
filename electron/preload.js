@@ -110,11 +110,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadUpdate:  () => ipcRenderer.invoke('download-update'),
   installUpdate:   () => ipcRenderer.invoke('install-update'),
   getUpdateInfo:   () => ipcRenderer.invoke('get-update-info'),
+  openUpdateWindow: (info) => ipcRenderer.invoke('open-update-window', info),
   closeUpdateNotif: () => ipcRenderer.invoke('close-update-notif'),
   onUpdateAvailable:       (cb) => { ipcRenderer.on('update-available', (_, d) => cb(d)); return () => ipcRenderer.removeAllListeners('update-available') },
   onUpdateNotAvailable:    (cb) => { ipcRenderer.on('update-not-available', () => cb()); return () => ipcRenderer.removeAllListeners('update-not-available') },
   onUpdateDownloadProgress:(cb) => { ipcRenderer.on('update-download-progress', (_, d) => cb(d)); return () => ipcRenderer.removeAllListeners('update-download-progress') },
   onUpdateDownloaded:      (cb) => { ipcRenderer.on('update-downloaded', (_, d) => cb(d)); return () => ipcRenderer.removeAllListeners('update-downloaded') },
+  onUpdateError:           (cb) => { ipcRenderer.on('update-error', (_, d) => cb(d)); return () => ipcRenderer.removeAllListeners('update-error') },
 
   // ── Composer ──────────────────────────────────────────────────────────────
   getComposerBuffer: () => ipcRenderer.invoke('get-composer-buffer'),

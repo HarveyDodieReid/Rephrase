@@ -744,16 +744,20 @@ let pendingUpdateInfo     = null    // held so the notif renderer can fetch it
 
 // ── Update notification window ───────────────────────────────────────────────
 
-function showUpdateNotifWindow(info) {
+function showUpdateNotifWindow(info, startDownload) {
   // Don't open a second one while one is still visible
   if (updateNotifWindow && !updateNotifWindow.isDestroyed()) {
     updateNotifWindow.focus()
+    if (startDownload && !isDev) {
+      // Window already open; start download if requested
+      setTimeout(() => autoUpdater.downloadUpdate().catch(() => {}), 200)
+    }
     return
   }
 
   pendingUpdateInfo = info
 
-  const W = 360, H = 196
+  const W = 380, H = 220
   const display = screen.getPrimaryDisplay()
   const { width: sw, height: sh } = display.workAreaSize
   const x = Math.round(sw - W - 16)
@@ -769,7 +773,7 @@ function showUpdateNotifWindow(info) {
     focusable: true,
     skipTaskbar: true,
     resizable: false,
-    movable: false,
+    movable: true,
     hasShadow: false,          // shadow is baked into the CSS box-shadow
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -787,6 +791,10 @@ function showUpdateNotifWindow(info) {
 
   updateNotifWindow.once('ready-to-show', () => {
     updateNotifWindow.showInactive()   // show without stealing focus
+    // Start download after a short delay so UpdateNotif has time to subscribe to progress events
+    if (startDownload && !isDev) {
+      setTimeout(() => autoUpdater.downloadUpdate().catch(() => {}), 400)
+    }
   })
   updateNotifWindow.on('closed', () => { updateNotifWindow = null })
 }
@@ -1527,7 +1535,8 @@ handle('check-for-update', async () => {
 })
 
 handle('download-update', async () => {
-  if (!isDev) autoUpdater.downloadUpdate().catch(() => {})
+  if (isDev) return { ok: false, devMode: true }
+  autoUpdater.downloadUpdate().catch(() => {})
   return { ok: true }
 })
 
@@ -1541,6 +1550,13 @@ handle('get-app-version', () => CURRENT_VERSION)
 
 // Renderer inside the notif window fetches the info that was stored when the window was created
 handle('get-update-info', () => pendingUpdateInfo)
+
+// Open the update window (e.g. when user clicks Update Now from Dashboard)
+// opts: { startDownload?: boolean } — if true, starts download once window is ready (prod only)
+handle('open-update-window', (_, info, opts) => {
+  if (info) pendingUpdateInfo = info
+  if (pendingUpdateInfo) showUpdateNotifWindow(pendingUpdateInfo, opts?.startDownload)
+})
 
 // Called by the notif renderer to close its own window
 handle('close-update-notif', (event) => {

@@ -152,11 +152,10 @@ export default function Dashboard() {
   const openUpdate = () => {
     if (updateDownloaded && window.electronAPI?.installUpdate) {
       window.electronAPI.installUpdate()
-    } else if (window.electronAPI?.downloadUpdate) {
-      window.electronAPI.downloadUpdate()
-    } else if (updateInfo?.url && window.electronAPI?.openExternal) {
-      window.electronAPI.openExternal(updateInfo.url)
+      return
     }
+    // Open update window; main process starts download once window is ready (no external browser)
+    window.electronAPI?.openUpdateWindow?.(updateInfo, { startDownload: true })
   }
 
   const showToast = (msg) => {
