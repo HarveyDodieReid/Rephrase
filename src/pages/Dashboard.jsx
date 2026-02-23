@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import BrandMark from '../components/BrandMark.jsx'
 import SplashScreen from '../components/SplashScreen.jsx'
-import SettingsContent, { SETTINGS_NAV } from './SettingsContent.jsx'
+import SettingsContent, { SETTINGS_NAV, HotkeyRecorder } from './SettingsContent.jsx'
 import './SettingsWindow.css'   // re-use all the settings styles
 import './Dashboard.css'
 
@@ -43,15 +43,560 @@ function groupTranscripts(list) {
 }
 
 // ── Top-level nav ──────────────────────────────────────────────────────────────
-const TOP_NAV = [
+const MAIN_NAV = [
   { id: 'home',        label: 'Home',        icon: HomeIcon        },
   { id: 'transcripts', label: 'Transcripts', icon: TranscriptIcon  },
-  { id: 'settings',    label: 'Settings',    icon: SettingsIcon    },
 ]
+
+// ── Onboarding wizard ─────────────────────────────────────────────────────────
+
+const ONBOARD_STEPS = [
+  { id: 'welcome',   title: 'Welcome to Rephrase',           desc: 'Your friendly voice assistant that runs right on your computer. Everything stays private and works without the internet.' },
+  { id: 'whisper',   title: 'Install Whisper.cpp',           desc: 'This turns your voice into text. It runs on your machine so your words stay private.' },
+  { 
+    id: 'model',
+    title: 'Download a Voice Model',
+    desc: 'Pick a model to get started. Smaller downloads are faster, bigger ones understand you a bit better — go with whatever feels right! You can always swap later.',
+  },
+  { id: 'shortcuts', title: 'Choose your shortcut',           desc: 'Pick the keys you’ll hold to start voice typing. You can change this later in Settings.' },
+  { id: 'theme',     title: 'Choose your theme',             desc: 'Light, dark, or match your system. You can change this anytime in Settings.' },
+  { id: 'mic',       title: 'Pick your microphone',          desc: 'Choose your microphone, give it a quick test, then press your keybind and start talking. Whatever you say will appear right here.' },
+  { id: 'done',      title: "Congratulations, you're all set!", desc: 'Use your keybind anywhere to dictate. Go to Dashboard or Configure to change settings.' },
+]
+
+const QUICK_MODELS = [
+  { value: 'tiny.en',   label: 'Tiny',   size: '75 MB',  note: 'Quick to download, good for getting started' },
+  { value: 'base.en',   label: 'Base',   size: '142 MB', note: 'Great balance of speed and quality' },
+  { value: 'small.en',  label: 'Small',  size: '466 MB', note: 'Best quality, takes a bit longer' },
+]
+
+function Onboarding({ onComplete, onConfigure, theme, onThemeChange, lastTranscript = '' }) {
+  const [step, setStep]             = useState(0)
+  const [busy, setBusy]             = useState(false)
+  const [whisperOk, setWhisperOk]   = useState(false)
+  const [ollamaOk, setOllamaOk]     = useState(false)
+  const [selectedModel, setSelectedModel] = useState('base.en')
+  const [modelDone, setModelDone]   = useState(false)
+  const [pct, setPct]               = useState(null)
+  const [error, setError]           = useState('')
+  const [hotkeyVoice, setHotkeyVoice] = useState('Control+Super')
+  const [obTheme, setObTheme]       = useState('light')
+  const [micDevices, setMicDevices] = useState([])
+  const [selectedMic, setSelectedMic] = useState('default')
+  const [micPerm, setMicPerm]       = useState('unknown')
+
+  useEffect(() => {
+    window.electronAPI?.getSettings?.().then(s => {
+      if (s?.hotkeyVoice) setHotkeyVoice(s.hotkeyVoice)
+      if (s?.theme) setObTheme(s.theme)
+      if (s?.micDeviceId) setSelectedMic(s.micDeviceId)
+    })
+    window.electronAPI?.checkSetup?.().then(r => {
+      if (r?.whisperBinary) setWhisperOk(true)
+      if (r?.running)       setOllamaOk(true)
+    })
+    const unsub = window.electronAPI?.onSetupProgress?.((d) => {
+      if (d.type === 'build') {
+        if (d.stage === 'done') { setWhisperOk(true); setBusy(false); setStep(s => s + 1) }
+      }
+      if (d.type === 'model' && d.modelName) {
+        if (d.pct != null) setPct(d.pct)
+        if (d.done) { setModelDone(true); setBusy(false); setPct(null) }
+      }
+      if (d.type === 'ollama-install') {
+        if (d.stage === 'downloading' && d.pct != null) setPct(d.pct)
+        if (d.stage === 'done') { setOllamaOk(true); setBusy(false); setPct(null); setStep(s => s + 1) }
+      }
+    })
+    return () => unsub?.()
+  }, [])
+
+  const requestMicPermission = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true })
+      setMicPerm('granted')
+      const devs = await navigator.mediaDevices.enumerateDevices()
+      const inputs = devs.filter(d => d.kind === 'audioinput')
+      setMicDevices(inputs)
+      if (inputs.length > 0 && !inputs.find(d => d.deviceId === selectedMic))
+        setSelectedMic(inputs[0].deviceId)
+    } catch { setMicPerm('denied') }
+  }
+
+  const current = ONBOARD_STEPS[step]
+
+  const saveMicAndAdvance = async () => {
+    try {
+      const s = await window.electronAPI?.getSettings?.()
+      await window.electronAPI?.saveSettings?.({ ...s, micDeviceId: selectedMic })
+    } catch {}
+    setStep(s => s + 1)
+  }
+
+  useEffect(() => {
+    if (current?.id !== 'mic') return
+    let cancelled = false
+    async function run() {
+      try {
+        const devs = await navigator.mediaDevices.enumerateDevices()
+        const inputs = devs.filter(d => d.kind === 'audioinput')
+        if (!cancelled) setMicDevices(inputs)
+        if (!cancelled && inputs.length > 0 && !inputs.find(d => d.deviceId === selectedMic))
+          setSelectedMic(inputs[0].deviceId)
+        if (inputs.some(d => d.label)) if (!cancelled) setMicPerm('granted')
+      } catch { if (!cancelled) setMicPerm('denied') }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [current?.id, selectedMic])
+
+  const doInstallWhisper = async () => {
+    setBusy(true); setError('')
+    const res = await window.electronAPI?.buildWhisper?.()
+    if (!res?.ok) { setBusy(false); setError(res?.error || 'Install failed') }
+  }
+
+  const doDownloadModel = async () => {
+    setBusy(true); setError(''); setPct(0)
+    const res = await window.electronAPI?.downloadWhisperModel?.(selectedModel)
+    if (!res?.ok) { setBusy(false); setError(res?.error || 'Download failed'); setPct(null) }
+  }
+
+  const doInstallOllama = async () => {
+    setBusy(true); setError(''); setPct(0)
+    const res = await window.electronAPI?.installOllama?.()
+    if (!res?.ok) { setBusy(false); setError(res?.error || 'Install failed'); setPct(null) }
+  }
+
+  const saveModelAndAdvance = async () => {
+    try {
+      const current = await window.electronAPI?.getSettings?.()
+      await window.electronAPI?.saveSettings?.({ ...current, whisperModel: selectedModel })
+    } catch {}
+    setStep(s => s + 1)
+  }
+
+  const finish = async () => {
+    try {
+      const current = await window.electronAPI?.getSettings?.()
+      await window.electronAPI?.saveSettings?.({ ...current, onboardingComplete: true })
+    } catch {}
+    onComplete()
+  }
+
+  return (
+    <div className="ob-root">
+      <div className="ob-card">
+        <div className="ob-logo">
+          <BrandMark size={48} variant="full" theme={(obTheme === 'dark' || (obTheme === 'system' && theme === 'dark')) ? 'dark' : 'light'} alt="Rephrase" />
+        </div>
+
+        <div className="ob-progress">
+          {ONBOARD_STEPS.map((s, i) => (
+            <span key={s.id} className={`ob-dot${i === step ? ' ob-dot-active' : i < step ? ' ob-dot-done' : ''}`} />
+          ))}
+        </div>
+
+        <div className="ob-step-inner" key={step}>
+          <h2 className="ob-title">{current.title}</h2>
+          <p className="ob-desc">{current.desc}</p>
+
+          {error && <p className="ob-error">{error}</p>}
+
+          {/* ── Welcome ─────── */}
+        {current.id === 'welcome' && (
+          <div className="ob-actions">
+            <button className="ob-btn ob-btn-primary" onClick={() => setStep(1)}>Get Started</button>
+          </div>
+        )}
+
+        {/* ── Whisper install ─────── */}
+        {current.id === 'whisper' && (
+          <div className="ob-actions">
+            {whisperOk ? (
+              <>
+                <span className="ob-check">Installed</span>
+                <button className="ob-btn ob-btn-primary" onClick={() => setStep(s => s + 1)}>Continue</button>
+              </>
+            ) : busy ? (
+              <div className="ob-progress-bar"><div className="ob-progress-bar-indeterminate" /></div>
+            ) : (
+              <>
+                <button className="ob-btn ob-btn-primary" onClick={doInstallWhisper}>Install Whisper.cpp</button>
+                <button className="ob-btn ob-btn-ghost" onClick={() => setStep(s => s + 1)}>Skip</button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Model download ─────── */}
+        {current.id === 'model' && (
+          <div className="ob-dl-section">
+            <div className="ob-dl-tiles">
+              {QUICK_MODELS.map(m => (
+                <button
+                  key={m.value}
+                  type="button"
+                  className={`ob-dl-tile${selectedModel === m.value ? ' ob-dl-tile--active' : ''}`}
+                  onClick={() => { if (!busy) setSelectedModel(m.value) }}
+                  disabled={busy}
+                >
+                  <span className="ob-dl-tile-name">{m.label}</span>
+                  <span className="ob-dl-tile-size">{m.size}</span>
+                  <span className="ob-dl-tile-note">{m.note}</span>
+                </button>
+              ))}
+            </div>
+
+            {modelDone && (
+              <div className="ob-actions">
+                <button className="ob-btn ob-btn-primary" onClick={saveModelAndAdvance}>Continue</button>
+              </div>
+            )}
+
+            {busy && !modelDone && (
+              <div className="ob-dl-progress">
+                <div className="ob-dl-progress-bar">
+                  <div className="ob-dl-progress-fill" style={{ width: `${pct ?? 0}%` }} />
+                </div>
+                <span className="ob-dl-progress-pct">{pct ?? 0}%</span>
+              </div>
+            )}
+
+            {!busy && !modelDone && (
+              <div className="ob-actions">
+                <button className="ob-btn ob-btn-primary" onClick={doDownloadModel}>Download</button>
+                <button className="ob-btn ob-btn-ghost" onClick={() => setStep(s => s + 1)}>Skip</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Ollama install ─────── */}
+        {current.id === 'ollama' && (
+          <div className="ob-actions">
+            {ollamaOk ? (
+              <>
+                <span className="ob-check">Running</span>
+                <button className="ob-btn ob-btn-primary" onClick={() => setStep(s => s + 1)}>Continue</button>
+              </>
+            ) : busy ? (
+              <div className="ob-progress-bar">
+                {pct != null && pct > 0
+                  ? <div className="ob-progress-bar-fill" style={{ width: `${pct}%` }} />
+                  : <div className="ob-progress-bar-indeterminate" />}
+              </div>
+            ) : (
+              <>
+                <button className="ob-btn ob-btn-primary" onClick={doInstallOllama}>Install Ollama</button>
+                <button className="ob-btn ob-btn-ghost" onClick={() => setStep(s => s + 1)}>Skip</button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Shortcuts ─────── */}
+        {current.id === 'shortcuts' && (
+          <div className="ob-shortcuts-section">
+            <div className="ob-shortcut-row">
+              <label className="ob-shortcut-label">Push to talk</label>
+              <span className="ob-shortcut-desc">Hold these keys to start voice typing</span>
+              <HotkeyRecorder value={hotkeyVoice} onChange={setHotkeyVoice} />
+            </div>
+            <div className="ob-actions">
+              <button
+                className="ob-btn ob-btn-primary"
+                onClick={async () => {
+                  try {
+                    const s = await window.electronAPI?.getSettings?.()
+                    await window.electronAPI?.saveSettings?.({ ...s, hotkeyVoice })
+                  } catch {}
+                  setStep(s => s + 1)
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Theme ─────── */}
+        {current.id === 'theme' && (
+          <div className="ob-theme-section">
+            <div className="ob-theme-chips">
+              {['light', 'dark', 'system'].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`ob-theme-chip${obTheme === t ? ' ob-theme-chip--active' : ''}`}
+                  onClick={() => {
+                    setObTheme(t)
+                    onThemeChange?.(t)
+                  }}
+                >
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </button>
+              ))}
+            </div>
+            <div className="ob-actions">
+              <button
+                className="ob-btn ob-btn-primary"
+                onClick={async () => {
+                  try {
+                    const s = await window.electronAPI?.getSettings?.()
+                    await window.electronAPI?.saveSettings?.({ ...s, theme: obTheme })
+                  } catch {}
+                  setStep(s => s + 1)
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Mic ─────── */}
+        {current.id === 'mic' && (
+          <div className="ob-mic-section">
+            {micPerm !== 'granted' && micDevices.every(d => !d.label) ? (
+              <button type="button" className="ob-btn ob-btn-primary" onClick={requestMicPermission}>
+                Allow microphone access
+              </button>
+            ) : (
+              <>
+                <label className="ob-mic-label">Microphone</label>
+                <select
+                  className="ob-mic-select"
+                  value={selectedMic}
+                  onChange={async (e) => {
+                    const id = e.target.value
+                    setSelectedMic(id)
+                    try {
+                      const s = await window.electronAPI?.getSettings?.()
+                      await window.electronAPI?.saveSettings?.({ ...s, micDeviceId: id })
+                    } catch {}
+                  }}
+                >
+                  {micDevices.map((d) => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `Microphone ${micDevices.indexOf(d) + 1}`}
+                    </option>
+                  ))}
+                </select>
+                <p className="ob-mic-hint">Press your keybind and speak. Your words will appear below.</p>
+                <div className="ob-mic-test-field">
+                  <textarea
+                    readOnly
+                    rows={3}
+                    value={lastTranscript || ''}
+                    placeholder="Your words will appear here when you use your shortcut…"
+                    className="ob-mic-textarea"
+                  />
+                </div>
+              </>
+            )}
+            <div className="ob-actions">
+              <button
+                className="ob-btn ob-btn-primary"
+                onClick={saveMicAndAdvance}
+                disabled={micPerm !== 'granted' && micDevices.every(d => !d.label)}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Done ─────── */}
+        {current.id === 'done' && (
+          <div className="ob-actions ob-actions--done">
+            <button className="ob-btn ob-btn-primary" onClick={finish}>Go to Dashboard</button>
+            {onConfigure && (
+              <button type="button" className="ob-btn ob-btn-ghost" onClick={onConfigure}>Configure</button>
+            )}
+          </div>
+        )}
+        </div>
+
+        {step > 0 && step < ONBOARD_STEPS.length - 1 && !busy && (
+          <button type="button" className="ob-back" onClick={() => setStep(s => s - 1)}>Back</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Voice training (onboarding-style screen) ──────────────────────────────────
+
+function VoiceTrainingScreen({ theme, onClose, onShowToast }) {
+  const [trainingPhrases, setTrainingPhrases] = useState([])
+  const [voiceProfile, setVoiceProfile] = useState(null)
+  const [trainingResults, setTrainingResults] = useState([])
+  const [recordingPhraseId, setRecordingPhraseId] = useState(null)
+  const [buildingProfile, setBuildingProfile] = useState(false)
+  const [selectedMic, setSelectedMic] = useState('default')
+  const streamRef = useRef(null)
+  const mrRef = useRef(null)
+  const chunksRef = useRef([])
+
+  useEffect(() => {
+    window.electronAPI?.getTrainingPhrases?.().then(p => setTrainingPhrases(Array.isArray(p) ? p : []))
+    window.electronAPI?.getVoiceProfile?.().then(v => {
+      if (v?.profile) setVoiceProfile(v.profile)
+      else setVoiceProfile(null)
+    })
+    window.electronAPI?.getSettings?.().then(s => {
+      if (s?.micDeviceId) setSelectedMic(s.micDeviceId)
+    })
+  }, [])
+
+  const startRecord = async (phrase) => {
+    if (recordingPhraseId) return
+    try {
+      const deviceId = selectedMic && selectedMic !== 'default' ? { exact: selectedMic } : undefined
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: deviceId ? { deviceId } : true,
+        video: false,
+      })
+      streamRef.current = stream
+      chunksRef.current = []
+      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
+      mrRef.current = mr
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+        if (chunksRef.current.length === 0) {
+          setRecordingPhraseId(null)
+          onShowToast?.('No audio captured — try again.')
+          return
+        }
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        const buffer = await blob.arrayBuffer()
+        const result = await window.electronAPI?.processTrainingSample?.({
+          audioBuffer: buffer.slice(0),
+          expectedText: phrase.text,
+          phraseId: phrase.id,
+        })
+        setTrainingResults(prev => {
+          const next = prev.filter(r => r.phraseId !== phrase.id)
+          if (result?.ok) next.push({ ...result, phraseId: phrase.id, expectedText: phrase.text })
+          return next
+        })
+        setRecordingPhraseId(null)
+        onShowToast?.(result?.ok ? `Heard: "${(result.transcribedText || '').slice(0, 40)}…"` : result?.error || 'Recording failed')
+      }
+      mr.start(100)
+      setRecordingPhraseId(phrase.id)
+    } catch (e) {
+      onShowToast?.(e?.message || 'Microphone access needed')
+    }
+  }
+
+  const stopRecord = () => {
+    const mr = mrRef.current
+    if (mr && mr.state !== 'inactive') mr.stop()
+    else setRecordingPhraseId(null)
+  }
+
+  const buildProfile = async () => {
+    if (trainingResults.length === 0) {
+      onShowToast?.('Record at least one phrase first.')
+      return
+    }
+    setBuildingProfile(true)
+    try {
+      const res = await window.electronAPI?.buildVoiceProfile?.({ trainingResults })
+      if (res?.ok) {
+        const v = await window.electronAPI?.getVoiceProfile?.()
+        setVoiceProfile(v?.profile ?? null)
+        onShowToast?.(`Profile built: ${v?.profile?.corrections ? Object.keys(v.profile.corrections).length : 0} corrections learned`)
+      } else onShowToast?.(res?.error || 'Failed to build profile')
+    } catch (e) {
+      onShowToast?.(e?.message || 'Failed')
+    }
+    setBuildingProfile(false)
+  }
+
+  const clearProfile = async () => {
+    try {
+      await window.electronAPI?.clearVoiceProfile?.()
+      setVoiceProfile(null)
+      setTrainingResults([])
+      onShowToast?.('Voice profile cleared')
+    } catch {
+      onShowToast?.('Failed to clear')
+    }
+  }
+
+  return (
+    <div className="ob-root">
+      <div className="ob-card">
+        <div className="ob-logo">
+          <BrandMark size={40} variant="full" theme={theme} alt="Rephrase" />
+        </div>
+        <h2 className="ob-title">Voice training</h2>
+        <p className="ob-desc">
+          Record a few phrases so Rephrase learns how you speak and corrects words it often mishears.
+        </p>
+
+        {voiceProfile && (
+          <div className="ob-voice-profile-bar">
+            <span className="ob-badge-ok">
+              {voiceProfile.corrections ? Object.keys(voiceProfile.corrections).length : 0} corrections learned
+            </span>
+            <button type="button" className="ob-btn ob-btn-ghost" onClick={clearProfile}>
+              Clear profile
+            </button>
+          </div>
+        )}
+
+        {trainingPhrases.length > 0 && (
+          <div className="ob-training-phrases">
+            {(trainingPhrases.slice(0, 8)).map((phrase) => {
+              const isRecording = recordingPhraseId === phrase.id
+              const hasResult = trainingResults.some(r => r.phraseId === phrase.id)
+              return (
+                <div key={phrase.id} className="ob-training-row">
+                  <span className="ob-training-text">"{phrase.text}"</span>
+                  <button
+                    type="button"
+                    className={`ob-btn ob-btn-ghost ${isRecording ? 'ob-btn-recording' : ''}`}
+                    onClick={() => isRecording ? stopRecord() : startRecord(phrase)}
+                    disabled={buildingProfile}
+                  >
+                    {isRecording ? 'Stop' : hasResult ? 'Re-record' : 'Record'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <div className="ob-actions">
+          <button
+            type="button"
+            className="ob-btn ob-btn-primary"
+            onClick={buildProfile}
+            disabled={trainingResults.length === 0 || buildingProfile}
+          >
+            {buildingProfile ? 'Building…' : 'Build profile'}
+          </button>
+          <button type="button" className="ob-btn ob-btn-ghost" onClick={onClose}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const [section,      setSection]      = useState('home')
   const [settingsTab,  setSettingsTab]  = useState('general')
+  const [showVoiceTraining, setShowVoiceTraining] = useState(false)
   const [computerName, setComputerName] = useState('')
   const [userEmail,    setUserEmail]    = useState('')
   const [userAvatar,   setUserAvatar]   = useState(null)
@@ -63,21 +608,29 @@ export default function Dashboard() {
   const [sidebarOpen,  setSidebarOpen]  = useState(true)
   const [searchQuery,  setSearchQuery]  = useState('')
   const [toast,        setToast]        = useState(null)
-  const [updateInfo,   setUpdateInfo]   = useState(null)   // null | { version, url, notes }
   const [appVersion,   setAppVersion]   = useState('…')
-  const [updateDownloaded, setUpdateDownloaded] = useState(false)
-  const [updateDownloading, setUpdateDownloading] = useState(false)
-  const [updateProgress, setUpdateProgress] = useState(0)
-  const [updateError, setUpdateError] = useState(null)
   const [showSplash,   setShowSplash]   = useState(true)
-  const [showMacBanner, setShowMacBanner] = useState(() =>
-    typeof localStorage !== 'undefined' && !localStorage.getItem('rephrase-mac-banner-dismissed') && window.electronAPI?.platform === 'win32'
-  )
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [onboardingTestTranscript, setOnboardingTestTranscript] = useState('')
+  const [installTask,  setInstallTask]  = useState(null)
   const [theme,        setTheme]        = useState('light')
   const [scheme,       setScheme]       = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  const [isOnline,     setIsOnline]     = useState(() => typeof navigator !== 'undefined' && navigator.onLine)
   const startPos = useRef(null)
 
   const effectiveTheme = theme === 'system' ? scheme : theme
+
+  // Listen for online/offline so we show the offline screen when no internet
+  useEffect(() => {
+    const onOnline  = () => setIsOnline(true)
+    const onOffline = () => setIsOnline(false)
+    window.addEventListener('online',  onOnline)
+    window.addEventListener('offline', onOffline)
+    return () => {
+      window.removeEventListener('online',  onOnline)
+      window.removeEventListener('offline', onOffline)
+    }
+  }, [])
 
   // Load data & set up IPC listeners
   useEffect(() => {
@@ -85,40 +638,21 @@ export default function Dashboard() {
     window.electronAPI?.getAuthState?.().then(s => { if (s?.email) setUserEmail(s.email) })
     window.electronAPI?.getTranscripts?.().then(t => { if (t) setTranscripts(t) })
     window.electronAPI?.getUserAvatar?.().then(a => { if (a) setUserAvatar(a) })
-    window.electronAPI?.getSettings?.().then(s => { if (s?.theme) setTheme(s.theme) })
+    window.electronAPI?.getSettings?.().then(s => {
+      if (s?.theme) setTheme(s.theme)
+      if (!s?.onboardingComplete) setShowOnboarding(true)
+    })
 
     const c1 = window.electronAPI?.onWindowMaximized?.(()   => setMaximized(true))
     const c2 = window.electronAPI?.onWindowUnmaximized?.(() => setMaximized(false))
     const c3 = window.electronAPI?.onNewTranscript?.((t) => {
       setTranscripts(prev => [t, ...prev])
+      setOnboardingTestTranscript(typeof t === 'string' ? t : t?.text ?? '')
     })
 
     window.electronAPI?.getAppVersion?.().then(v => { if (v) setAppVersion(v) })
-    window.electronAPI?.checkForUpdate?.().then(info => {
-      if (info) setUpdateInfo(info)
-    })
 
-    const u1 = window.electronAPI?.onUpdateAvailable?.(i => {
-      setUpdateInfo(i)
-      setUpdateDownloaded(false)
-      setUpdateDownloading(false)
-      setUpdateError(null)
-    })
-    const u2 = window.electronAPI?.onUpdateDownloaded?.(() => {
-      setUpdateDownloaded(true)
-      setUpdateDownloading(false)
-    })
-    const u3 = window.electronAPI?.onUpdateDownloadProgress?.(p => {
-      setUpdateDownloading(true)
-      setUpdateProgress(p?.percent ?? 0)
-      setUpdateError(null)
-    })
-    const u4 = window.electronAPI?.onUpdateError?.(e => {
-      setUpdateDownloading(false)
-      setUpdateError(e?.message ?? 'Download failed')
-    })
-
-    return () => { c1?.(); c2?.(); c3?.(); u1?.(); u2?.(); u3?.(); u4?.() }
+    return () => { c1?.(); c2?.(); c3?.() }
   }, [])
 
   // Prefers-color-scheme for system theme
@@ -128,6 +662,44 @@ export default function Dashboard() {
     const fn = () => setScheme(m.matches ? 'dark' : 'light')
     m.addEventListener('change', fn)
     return () => m.removeEventListener('change', fn)
+  }, [])
+
+  // Install splash — listens to setup-progress events from main
+  useEffect(() => {
+    if (!installTask) return
+    const unsub = window.electronAPI?.onSetupProgress?.((d) => {
+      setInstallTask(prev => {
+        if (!prev) return null
+        if (d.type === 'build') {
+          if (d.stage === 'done') return { ...prev, status: 'done', pct: 100, log: (prev.log || '') + (d.log || '') }
+          if (d.log) return { ...prev, log: (prev.log || '') + d.log }
+        }
+        if (d.type === 'model' && d.modelName) {
+          if (d.done) return { ...prev, status: 'done', pct: 100 }
+          if (d.pct != null) return { ...prev, pct: d.pct, status: 'downloading' }
+        }
+        if (d.type === 'ollama-install') {
+          if (d.stage === 'done') return { ...prev, status: 'done', pct: 100 }
+          if (d.stage === 'downloading' && d.pct != null) return { ...prev, pct: d.pct, status: 'downloading' }
+          if (d.stage === 'installing') return { ...prev, status: 'installing', pct: null }
+        }
+        return prev
+      })
+    })
+    return () => unsub?.()
+  }, [!!installTask])
+
+  // Auto-dismiss install splash after completion
+  useEffect(() => {
+    if (installTask?.status === 'done') {
+      const t = setTimeout(() => setInstallTask(null), 2200)
+      return () => clearTimeout(t)
+    }
+  }, [installTask?.status])
+
+  const handleInstallStart = useCallback((type, label) => {
+    setInstallTask({ type, label, status: 'starting', pct: 0, log: '' })
+    setSection('home')
   }, [])
 
   // Title-bar drag
@@ -196,29 +768,6 @@ export default function Dashboard() {
     await window.electronAPI?.signOut?.()
   }
 
-  const handleUpdateDownload = async () => {
-    if (updateDownloaded && window.electronAPI?.installUpdate) {
-      window.electronAPI.installUpdate()
-      return
-    }
-    if (updateError && updateInfo?.url && window.electronAPI?.openExternal) {
-      window.electronAPI.openExternal(updateInfo.url)
-      return
-    }
-    if (window.electronAPI?.downloadUpdate) {
-      setUpdateDownloading(true)
-      setUpdateError(null)
-      const res = await window.electronAPI.downloadUpdate()
-      if (res?.devMode) {
-        setUpdateDownloading(false)
-        setUpdateError('In-app updates require the installed app. Download the installer from the releases page.')
-        return
-      }
-    } else if (updateInfo?.url && window.electronAPI?.openExternal) {
-      window.electronAPI.openExternal(updateInfo.url)
-    }
-  }
-
   const showToast = (msg) => {
     const id = Date.now()
     setToast({ msg, id })
@@ -226,10 +775,6 @@ export default function Dashboard() {
   }
 
   // Derived
-  const sectionLabel = section === 'settings'
-    ? (SETTINGS_NAV.find(n => n.id === settingsTab)?.label ?? 'Settings')
-    : TOP_NAV.find(n => n.id === section)?.label ?? ''
-
   const filteredTranscripts = searchQuery.trim()
     ? transcripts.filter(t => t.text.toLowerCase().includes(searchQuery.toLowerCase()))
     : transcripts
@@ -238,11 +783,56 @@ export default function Dashboard() {
   const avgWords   = transcripts.length > 0 ? Math.round(totalWords / transcripts.length) : 0
 
   return (
-    <div className="db-root" data-theme={effectiveTheme}>
+    <div className={`db-root${showSplash || installTask ? ' db-root--splash' : ''}`} data-theme={effectiveTheme}>
       {showSplash && (
-        <SplashScreen duration={3200} onComplete={() => setShowSplash(false)} />
+        <SplashScreen theme={effectiveTheme} onComplete={() => setShowSplash(false)} />
       )}
 
+      {/* ── Onboarding wizard (first launch) ────────────────────────────────────── */}
+      {!showSplash && showOnboarding && (
+        <Onboarding
+              theme={effectiveTheme}
+              onThemeChange={setTheme}
+              onComplete={() => setShowOnboarding(false)}
+              onConfigure={() => { setShowOnboarding(false); setSection('settings'); }}
+              lastTranscript={onboardingTestTranscript}
+            />
+      )}
+
+      {/* ── Voice training (onboarding-style, opened from Settings → Voice) ─────── */}
+      {!showSplash && showVoiceTraining && (
+        <VoiceTrainingScreen
+          theme={effectiveTheme}
+          onClose={() => setShowVoiceTraining(false)}
+          onShowToast={showToast}
+        />
+      )}
+
+      {/* ── No internet: show offline screen instead of dashboard ───────────────── */}
+      {!showSplash && !showOnboarding && !installTask && !isOnline && (
+        <div className="db-offline-screen">
+          <div className="db-offline-inner">
+            <div className="db-offline-icon">
+              <WifiOffIcon />
+            </div>
+            <h1 className="db-offline-title">Oops, we can’t connect to the internet</h1>
+            <p className="db-offline-desc">
+              Check your connection and try again. Rephrase needs the internet for voice, rephrase, and updates.
+            </p>
+            <button
+              type="button"
+              className="db-offline-retry"
+              onClick={() => window.location.reload()}
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Dashboard (only when online and not installing) ─────────────────── */}
+      {!showSplash && !showOnboarding && !installTask && isOnline && (
+        <>
       {/* ── Toast ────────────────────────────────────────────────────────────── */}
       {toast && (
         <div className="sw-toast" key={toast.id}>
@@ -256,69 +846,17 @@ export default function Dashboard() {
       {/* ── Title bar ────────────────────────────────────────────────────────── */}
       <div className="db-titlebar" onMouseDown={onTitleDown}>
         <div className="db-tb-left">
-          <button
-            className="db-sidebar-toggle"
-            onMouseDown={e => e.stopPropagation()}
-            onClick={() => setSidebarOpen(o => !o)}
-            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-          >
-            <HamburgerIcon />
-          </button>
           <BrandMark size={20} variant="full" theme={effectiveTheme} className="db-brandlogo" alt="Rephrase" />
-          <span className="db-tb-sep" />
-          <span className="db-tb-section">{sectionLabel}</span>
         </div>
         <div className="db-wc-group" onMouseDown={e => e.stopPropagation()}>
           <button className="db-wc db-wc-min" onClick={() => window.electronAPI?.minimize()} title="Minimize">
             <svg width="10" height="1" viewBox="0 0 10 1"><line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" strokeWidth="1.2"/></svg>
-          </button>
-          <button className="db-wc db-wc-max" onClick={() => window.electronAPI?.maximize()} title={isMaximized ? 'Restore' : 'Maximize'}>
-            {isMaximized
-              ? <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.1"><rect x="2" y="0" width="8" height="8"/><path d="M0 2v8h8"/></svg>
-              : <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2"><rect x="0.5" y="0.5" width="9" height="9"/></svg>
-            }
           </button>
           <button className="db-wc db-wc-close" onClick={() => window.electronAPI?.close()} title="Close">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
           </button>
         </div>
       </div>
-
-      {/* ── Blocking update modal (black/white, cannot dismiss) ───────────────── */}
-      {updateInfo && (
-        <div className="db-update-modal-overlay">
-          <div className="db-update-modal">
-            <div className="db-update-modal-icon">
-              <UpdateDownloadIcon />
-            </div>
-            <h2 className="db-update-modal-title">Update Available</h2>
-            <p className="db-update-modal-text">
-              A new version of Rephrase is ready. Download and install to get the latest features and improvements.
-            </p>
-            {updateError && (
-              <p className="db-update-modal-error">{updateError}</p>
-            )}
-            {updateDownloading && (
-              <div className="db-update-modal-progress">
-                <div className="db-update-modal-progress-fill" style={{ width: `${updateProgress}%` }} />
-              </div>
-            )}
-            <button
-              className="db-update-modal-btn"
-              onClick={handleUpdateDownload}
-              disabled={updateDownloading}
-            >
-              {updateDownloaded
-                ? 'Restart to install'
-                : updateError
-                  ? 'Download manually'
-                  : updateDownloading
-                    ? `Downloading… ${Math.round(updateProgress)}%`
-                    : 'Download Now'}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── Body ─────────────────────────────────────────────────────────────── */}
       <div className="db-body">
@@ -341,39 +879,60 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Primary nav */}
+            {/* Primary nav: one sidebar — Home/Transcripts/Settings or Back + General/API/Theme/Voice */}
             <nav className="db-nav">
-              {TOP_NAV.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  className={`db-nav-item${section === id ? ' active' : ''}`}
-                  onClick={() => setSection(id)}
-                >
-                  <Icon />
-                  <span className="db-nav-label">{label}</span>
-                  {id === 'transcripts' && transcripts.length > 0 && (
-                    <span className="db-nav-badge">{transcripts.length > 99 ? '99+' : transcripts.length}</span>
-                  )}
-                </button>
-              ))}
-            </nav>
-
-            {/* Settings sub-nav */}
-            {section === 'settings' && (
-              <div className="db-settings-subnav">
-                <p className="db-subnav-heading">SETTINGS</p>
-                {SETTINGS_NAV.map(({ id, label, icon: Icon }) => (
+              {section === 'settings' ? (
+                <>
                   <button
-                    key={id}
-                    className={`db-nav-item db-nav-sub${settingsTab === id ? ' active' : ''}`}
-                    onClick={() => setSettingsTab(id)}
+                    type="button"
+                    className="db-nav-item db-nav-sub"
+                    onClick={() => setSection('home')}
                   >
-                    <Icon />
-                    <span className="db-nav-label">{label}</span>
+                    <BackArrowIcon />
+                    <span className="db-nav-label">Back to Home</span>
                   </button>
-                ))}
-              </div>
-            )}
+                  <div className="db-settings-subnav">
+                    <p className="db-subnav-heading">SETTINGS</p>
+                    {SETTINGS_NAV.map(({ id, label, icon: Icon }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`db-nav-item db-nav-sub${settingsTab === id ? ' active' : ''}`}
+                        onClick={() => setSettingsTab(id)}
+                      >
+                        <Icon />
+                        <span className="db-nav-label">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {MAIN_NAV.map(({ id, label, icon: Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className={`db-nav-item${section === id ? ' active' : ''}`}
+                      onClick={() => setSection(id)}
+                    >
+                      <Icon />
+                      <span className="db-nav-label">{label}</span>
+                      {id === 'transcripts' && transcripts.length > 0 && (
+                        <span className="db-nav-badge">{transcripts.length > 99 ? '99+' : transcripts.length}</span>
+                      )}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className={`db-nav-item${section === 'settings' ? ' active' : ''}`}
+                    onClick={() => setSection('settings')}
+                  >
+                    <SettingsIcon />
+                    <span className="db-nav-label">Settings</span>
+                  </button>
+                </>
+              )}
+            </nav>
 
             {/* Sidebar footer */}
             <div className="db-sidebar-footer">
@@ -392,74 +951,44 @@ export default function Dashboard() {
           {/* ── HOME ─────────────────────────────────────────────────────────── */}
           {section === 'home' && (
             <div className="db-home">
-              <div className="db-hero">
-                <h1 className="db-hero-title">
-                  Welcome back{computerName ? `, ${computerName.split(' ')[0]}` : ''}
-                </h1>
-                <p className="db-hero-sub">
-                  Voice transcripts and shortcuts at a glance. Start recording with your hotkey or use Composer to generate documents.
+              {/* Top row: Welcome + stat capsules */}
+              <div className="db-hero-row">
+                <div className="db-hero">
+                  <h1 className="db-hero-title">
+                    Welcome back{computerName ? `, ${computerName.split(' ')[0].toUpperCase()}` : ''}
+                  </h1>
+                </div>
+                <div className="db-stats-capsules">
+                  <div className="db-stat-capsule">
+                    <FlameCapsuleIcon />
+                    <span>{transcripts.length} transcripts</span>
+                  </div>
+                  <div className="db-stat-capsule">
+                    <RocketCapsuleIcon />
+                    <span>{totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}K` : totalWords} words</span>
+                  </div>
+                  <div className="db-stat-capsule">
+                    <TrophyCapsuleIcon />
+                    <span>{avgWords} avg words</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feature card: right under Welcome + stats, above Recent transcripts */}
+              <div className="db-feature-card">
+                <h2 className="db-feature-card-title">
+                  Now on <span className="db-feature-card-accent">your local machine</span>
+                </h2>
+                <p className="db-feature-card-desc">
+                  Voice typing that runs right on your computer — no cloud required. Your words stay private. Also available on Mac.
                 </p>
-              </div>
-
-              {/* Mac Now Available banner (Windows only) */}
-              {showMacBanner && (
-                <div className="db-mac-banner">
-                  <span className="db-mac-banner-text">Mac Now Available</span>
-                  <button
-                    type="button"
-                    className="db-mac-banner-link"
-                    onClick={() => window.electronAPI?.openExternal?.('https://github.com/HarveyDodieReid/Rephrase/releases')}
-                  >
-                    Download
-                  </button>
-                  <button
-                    type="button"
-                    className="db-mac-banner-dismiss"
-                    onClick={() => {
-                      setShowMacBanner(false)
-                      try { localStorage.setItem('rephrase-mac-banner-dismissed', '1') } catch {}
-                    }}
-                    aria-label="Dismiss"
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-
-              {/* Stats */}
-              <div className="db-stats-row">
-                <div className="db-stat-card db-stat-card--primary">
-                  <div className="db-stat-icon db-stat-icon--purple"><MicStatIcon /></div>
-                  <div className="db-stat-body">
-                    <span className="db-stat-value">{transcripts.length}</span>
-                    <span className="db-stat-label">Transcripts</span>
-                  </div>
-                </div>
-                <div className="db-stat-card">
-                  <div className="db-stat-icon db-stat-icon--blue"><WordsStatIcon /></div>
-                  <div className="db-stat-body">
-                    <span className="db-stat-value">{avgWords}</span>
-                    <span className="db-stat-label">Avg. words</span>
-                  </div>
-                </div>
-                <div className="db-stat-card">
-                  <div className="db-stat-icon db-stat-icon--green"><TotalStatIcon /></div>
-                  <div className="db-stat-body">
-                    <span className="db-stat-value">{totalWords}</span>
-                    <span className="db-stat-label">Total words</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Shortcut hint card */}
-              <div className="db-shortcut-hint">
-                <div className="db-shortcut-hint-icon"><MicStatIcon /></div>
-                <div className="db-shortcut-hint-body">
-                  <span className="db-shortcut-hint-title">Quick start</span>
-                  <span className="db-shortcut-hint-desc">
-                    Hold <kbd>Ctrl</kbd> + <kbd><WinKeyIcon /></kbd> anywhere to record. Use <kbd>Alt</kbd> + <kbd><WinKeyIcon /></kbd> for Composer.
-                  </span>
-                </div>
+                <button
+                  type="button"
+                  className="db-feature-card-cta"
+                  onClick={() => window.electronAPI?.openExternal?.('https://www.rephraseflow.org/download')}
+                >
+                  Download for Mac
+                </button>
               </div>
 
               {/* Recent transcripts preview */}
@@ -514,8 +1043,6 @@ export default function Dashboard() {
               )}
             </div>
           )}
-
-          {/* ── TRANSCRIPTS ──────────────────────────────────────────────────── */}
           {section === 'transcripts' && (
             <div className="db-transcripts">
               <div className="db-transcripts-header">
@@ -561,6 +1088,7 @@ export default function Dashboard() {
                 </div>
               ) : filteredTranscripts.length === 0 ? (
                 <div className="db-empty db-empty-results">
+                            <div className="db-transcript-tile-accent" />
                   <SearchIcon />
                   <p className="db-empty-title">No results</p>
                   <p className="db-empty-sub">Try a different search term.</p>
@@ -576,7 +1104,6 @@ export default function Dashboard() {
                       <div className="db-transcript-timeline">
                         {group.items.map(t => (
                           <article key={t.id} className="db-transcript-tile">
-                            <div className="db-transcript-tile-accent" />
                             <div className="db-transcript-tile-body">
                               <p className="db-transcript-tile-text">{t.text}</p>
                             </div>
@@ -627,18 +1154,47 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ── SETTINGS ─────────────────────────────────────────────────────── */}
+          {/* ── SETTINGS ────────────────────────────────────────────────────────── */}
           {section === 'settings' && (
             <div className="db-settings-wrap">
-              <div className="sw-content-header">
-                <h1 className="sw-title">{SETTINGS_NAV.find(n => n.id === settingsTab)?.label}</h1>
-              </div>
-              <SettingsContent section={settingsTab} onShowToast={showToast} onThemeChange={setTheme} />
+              <SettingsContent section={settingsTab} onShowToast={showToast} onThemeChange={setTheme} onInstallStart={handleInstallStart} onOpenVoiceTraining={() => setShowVoiceTraining(true)} />
             </div>
           )}
 
         </main>
       </div>
+        </>
+      )}
+
+      {/* ── Install widget (same style as app splash screen) ────────────── */}
+      {installTask && (
+        <div className={`inst-root${installTask.status === 'done' ? ' inst-exit' : ''}`}>
+          <div className="inst-widget inst-widget--visible">
+            <div className="inst-logo">
+              <BrandMark size={64} variant="full" theme="dark" alt="Rephrase" />
+            </div>
+            <p className="inst-title">
+              {installTask.status === 'done' ? 'All set!' : installTask.label || 'Installing…'}
+            </p>
+            <p className="inst-status">
+              {installTask.status === 'done'
+                ? 'COMPLETE'
+                : installTask.status === 'installing'
+                  ? 'SETTING UP…'
+                  : installTask.pct != null && installTask.pct > 0
+                    ? `DOWNLOADING — ${installTask.pct}%`
+                    : 'PREPARING…'}
+            </p>
+            <div className="inst-loader">
+              {installTask.status === 'done'
+                ? <span className="inst-loader-done" />
+                : installTask.pct != null && installTask.pct > 0
+                  ? <span className="inst-loader-fill" style={{ width: `${installTask.pct}%` }} />
+                  : <span className="inst-loader-bar" />}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -660,6 +1216,38 @@ function WinKeyIcon() {
   )
 }
 
+function FlameCapsuleIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="db-capsule-icon">
+      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.08-2.143-.22-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+    </svg>
+  )
+}
+
+function RocketCapsuleIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="db-capsule-icon">
+      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
+      <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
+      <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
+      <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+    </svg>
+  )
+}
+
+function TrophyCapsuleIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="db-capsule-icon">
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+      <path d="M4 22h16"/>
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+    </svg>
+  )
+}
+
 function UpdateIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -670,22 +1258,25 @@ function UpdateIcon() {
   )
 }
 
-function UpdateDownloadIcon() {
+function WifiOffIcon() {
   return (
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-      <polyline points="7 10 12 15 17 10"/>
-      <line x1="12" y1="15" x2="12" y2="3"/>
+    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M1 1l22 22"/>
+      <path d="M16.72 11.06a10.94 10.94 0 0 1 2.78 2.15"/>
+      <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.86"/>
+      <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>
+      <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+      <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+      <line x1="12" y1="20" x2="12.01" y2="20"/>
     </svg>
   )
 }
 
-function HamburgerIcon() {
+function BackArrowIcon() {
   return (
-    <svg width="15" height="12" viewBox="0 0 15 12" fill="none">
-      <line x1="0" y1="1"  x2="15" y2="1"  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      <line x1="0" y1="6"  x2="15" y2="6"  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      <line x1="0" y1="11" x2="15" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5"/>
+      <polyline points="12 19 5 12 12 5"/>
     </svg>
   )
 }
@@ -719,6 +1310,7 @@ function SettingsIcon() {
     </svg>
   )
 }
+
 
 function SignOutIcon() {
   return (
@@ -793,6 +1385,7 @@ function CloseSmIcon() {
     </svg>
   )
 }
+
 
 function MicBigIcon() {
   return (

@@ -5,9 +5,13 @@ export default function ComposerWidget() {
   const [buffer, setBuffer] = useState([])
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState(null)
+  const [ollamaModel, setOllamaModel] = useState('')
 
   useEffect(() => {
     window.electronAPI?.getComposerBuffer?.().then(b => { if (b) setBuffer(b) })
+    window.electronAPI?.getSettings?.().then(s => {
+      if (s?.ollamaModel) setOllamaModel(s.ollamaModel)
+    })
 
     const unsubUpdate = window.electronAPI?.onComposerUpdate?.((d) => setBuffer(d || []))
     const unsubGen = window.electronAPI?.onComposerGenerating?.((b) => setGenerating(b))
@@ -29,6 +33,7 @@ export default function ComposerWidget() {
   }
 
   const handleClear = () => {
+    setError(null)
     window.electronAPI?.clearComposer?.()
   }
 
@@ -57,15 +62,25 @@ export default function ComposerWidget() {
 
       <div className="cw-body">
         {buffer.length === 0 ? (
-          <p className="cw-empty">Hold your shortcut to add a thought...</p>
+          <p className="cw-empty">Hold Alt + Win to record a thought. Your words are transcribed locally and added here.</p>
         ) : (
-          <div className="cw-stats">
-            <span className="cw-stat-badge">{buffer.length} draft{buffer.length !== 1 ? 's' : ''}</span>
-            <span className="cw-stat-badge">{wordCount} words</span>
-          </div>
+          <>
+            <div className="cw-stats">
+              <span className="cw-stat-badge">{buffer.length} thought{buffer.length !== 1 ? 's' : ''}</span>
+              <span className="cw-stat-badge">{wordCount} words</span>
+            </div>
+            <div className="cw-buffer-list">
+              {buffer.map((text, i) => (
+                <div key={i} className="cw-buffer-item">
+                  <span className="cw-buffer-num">{i + 1}</span>
+                  <p className="cw-buffer-text">{text}</p>
+                </div>
+              ))}
+            </div>
+          </>
         )}
         <p className="cw-hint">
-          Keep holding your shortcut to record more thoughts. When you're ready, generate the final text below.
+          Record more with your shortcut, or generate below. Uses your local Ollama model{ollamaModel ? ` (${ollamaModel})` : ''}.
         </p>
 
         {error && <div className="cw-error">{error}</div>}

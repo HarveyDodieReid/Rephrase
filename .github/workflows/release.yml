@@ -79,6 +79,8 @@ jobs:
           mkdir -p dist-electron
           cp win-artifacts/dist-electron/* dist-electron/ 2>/dev/null || cp -r win-artifacts/* dist-electron/ 2>/dev/null || true
           cp mac-artifacts/dist-electron/* dist-electron/ 2>/dev/null || cp -r mac-artifacts/* dist-electron/ 2>/dev/null || true
+          # Rename Windows exe if electron-builder used dots (Rephrase.Setup.x.exe -> Rephrase-Setup-x.exe)
+          for f in dist-electron/Rephrase.Setup.*.exe; do [ -f "$f" ] && mv "$f" "dist-electron/Rephrase-Setup-$VERSION.exe"; done
           # Rename Mac files to Rephrase-Setup-*-mac-*
           for f in dist-electron/Rephrase-*-arm64.dmg; do [ -f "$f" ] && mv "$f" "dist-electron/Rephrase-Setup-$VERSION-mac-arm64.dmg"; done
           for f in dist-electron/Rephrase-*-x64.dmg; do [ -f "$f" ] && mv "$f" "dist-electron/Rephrase-Setup-$VERSION-mac-x64.dmg"; done

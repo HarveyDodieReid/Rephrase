@@ -5,7 +5,6 @@ export default function Widget() {
   const [status, setStatus]               = useState('idle')   // idle|loading|success|error|recording
   const [message, setMessage]             = useState('')
   const [autoFixStatus, setAutoFixStatus] = useState('off')
-  const [vibeCodeOn, setVibeCodeOn]       = useState(false)
   const [lastOutput, setLastOutput]       = useState('')
   const [audioLevel, setAudioLevel]       = useState(0)
 
@@ -19,9 +18,6 @@ export default function Widget() {
 
   // ── Push events from main ────────────────────────────────────────────────
   useEffect(() => {
-    // Load initial vibe code setting
-    window.electronAPI?.getSettings().then(s => { if (s.vibeCode != null) setVibeCodeOn(s.vibeCode) }).catch(() => {})
-
     // Manual rewrite shortcut feedback
     const c1 = window.electronAPI?.onRephraseStatus((data) => {
       setStatus(data.status === 'idle' ? 'idle' : data.status)
@@ -33,7 +29,12 @@ export default function Widget() {
     const c2 = window.electronAPI?.onAutoFixStatus((s) => setAutoFixStatus(s))
 
     // Push-to-talk: HOLD → START
-    const c3 = window.electronAPI?.onVoiceStart(() => openMic())
+    const c3 = window.electronAPI?.onVoiceStart(() => {
+      // #region agent log
+      window.electronAPI?.__debugLog?.({hypothesisId:'H-A',location:'Widget.jsx:onVoiceStart',message:'voice-start received in Widget'});
+      // #endregion
+      openMic()
+    })
 
     // Push-to-talk: RELEASE → STOP → transcribe
     const c4 = window.electronAPI?.onVoiceStop(() => closeMic())
@@ -43,6 +44,9 @@ export default function Widget() {
 
   // ── Open microphone (called on voice-start OR mic button press) ──────────
   const openMic = useCallback(async () => {
+    // #region agent log
+    window.electronAPI?.__debugLog?.({hypothesisId:'H-B',location:'Widget.jsx:openMic-entry',message:'openMic called',data:{alreadyRecording:isRecordingRef.current}});
+    // #endregion
     if (isRecordingRef.current) return
     try {
       // Use the saved mic device if one was chosen in Settings
@@ -81,7 +85,13 @@ export default function Widget() {
       isRecordingRef.current = true
       setStatus('recording')
       setMessage('Listening… hold Ctrl + ⊞')
-    } catch {
+      // #region agent log
+      window.electronAPI?.__debugLog?.({hypothesisId:'H-B',location:'Widget.jsx:openMic-success',message:'Mic opened & MediaRecorder started',data:{deviceId:deviceId||'default'}});
+      // #endregion
+    } catch (err) {
+      // #region agent log
+      window.electronAPI?.__debugLog?.({hypothesisId:'H-B',location:'Widget.jsx:openMic-error',message:'openMic FAILED',data:{error:err?.message||String(err)}});
+      // #endregion
       setStatus('error')
       setMessage('Microphone access denied.')
       setTimeout(reset, 3000)
@@ -103,6 +113,10 @@ export default function Widget() {
     stream.getTracks().forEach(t => t.stop())
     audioCtx.close().catch(() => {})
 
+    // #region agent log
+    window.electronAPI?.__debugLog?.({hypothesisId:'H-C',location:'Widget.jsx:handleAudioReady',message:'handleAudioReady called',data:{chunks:chunksRef.current.length}});
+    // #endregion
+
     if (chunksRef.current.length === 0) { reset(); return }
 
     setStatus('loading')
@@ -110,19 +124,20 @@ export default function Widget() {
 
     const blob   = new Blob(chunksRef.current, { type: 'audio/webm' })
     const buffer = await blob.arrayBuffer()
+    // #region agent log
+    window.electronAPI?.__debugLog?.({hypothesisId:'H-C',location:'Widget.jsx:before-transcribe',message:'Calling transcribeAudio',data:{bufferBytes:buffer.byteLength}});
+    // #endregion
 
-    // transcribe-audio runs: Whisper → cleanup → (optional) Vibe Code expansion
     const result = await window.electronAPI.transcribeAudio(buffer)
+    // #region agent log
+    window.electronAPI?.__debugLog?.({hypothesisId:'H-ALL',location:'Widget.jsx:after-transcribe',message:'transcribeAudio returned',data:{ok:result?.ok,error:result?.error,hasText:!!(result?.text)}});
+    // #endregion
 
     if (result.ok && result.text.trim()) {
-      if (result.vibeCode) {
-        setMessage('✦ Prompt expanded!')
-      } else {
-        setMessage('Pasting…')
-      }
+      setMessage('Pasting…')
       await window.electronAPI.insertText(result.text.trim())
       setStatus('success')
-      setMessage(result.vibeCode ? '✦ Vibe Code prompt pasted!' : result.text.trim())
+      setMessage(result.text.trim())
       setLastOutput(trim100(result.text.trim()))
     } else {
       setStatus('error')
@@ -155,9 +170,6 @@ export default function Widget() {
       {/* Header */}
       <div className="widget-header">
         <span className="widget-subtitle">Any text field on your desktop</span>
-        {vibeCodeOn && (
-          <div className="autofix-badge vibe-active">✦ Vibe</div>
-        )}
         {autoFixStatus !== 'off' && (
           <div className={`autofix-badge ${autoFixStatus}`}>
             {autoFixStatus === 'fixing' && <span className="micro-spin" />}
@@ -168,83 +180,119 @@ export default function Widget() {
         )}
       </div>
 
-      {/* Body */}
-      <div className="widget-body">
-
-        {/* Transcribing spinner */}
-        {!isRecording && status === 'loading' && (
-          <div className="widget-loading">
-            <span className="spinner" />
-            <span>{message}</span>
-          </div>
-        )}
-
-        {/* Success */}
-        {!isRecording && status === 'success' && (
-          <div className="widget-feedback success">
-            <CheckIcon />
-            <div>
-              <strong>Typed into field</strong>
-              <p className="feedback-preview">{message}</p>
+      {/* Active Recording Panel — full takeover */}
+      {isRecording && (
+        <div className="recording-panel">
+          <div className="recording-orb-wrap">
+            <div className="recording-orb" style={{ '--level': audioLevel }}>
+              <div className="recording-orb-ring" />
+              <MicIcon recording />
             </div>
           </div>
-        )}
-
-        {/* Error */}
-        {!isRecording && status === 'error' && (
-          <div className="widget-feedback error">
-            <WarnIcon />
-            <span>{message}</span>
+          <div className="recording-waveform">
+            {Array.from({ length: 20 }).map((_, i) => {
+              const phase   = (i / 19) * Math.PI * 2
+              const jitter  = Math.sin(phase * 3.7 + i * 0.4)
+              const raw     = audioLevel * (0.45 + 0.55 * Math.abs(Math.sin(phase + i * 0.6)))
+              const h       = Math.max(3, raw * (1 + jitter * 0.18))
+              return (
+                <span
+                  key={i}
+                  className="rec-bar"
+                  style={{ '--h': `${h}px`, '--delay': `${(i * 43) % 400}ms` }}
+                />
+              )
+            })}
           </div>
-        )}
-
-        {/* Idle — last output */}
-        {!isRecording && status === 'idle' && lastOutput && (
-          <div className="last-rewrite">
-            <span className="last-rewrite-label">Last output</span>
-            <p className="last-rewrite-text">{lastOutput}</p>
-          </div>
-        )}
-
-        {/* Idle — first-run hint */}
-        {!isRecording && status === 'idle' && !lastOutput && (
-          <p className="widget-hint">
-            <strong>Hold Ctrl + <WinKeyIcon /></strong> to dictate by voice.<br />
-            Click in a text field &amp; press <strong>Rewrite</strong> to rephrase.
-          </p>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="widget-footer">
-        <div className="footer-shortcuts">
-          <span className="shortcut-pill" title="Hold to dictate">
-            Ctrl+<WinKeyIcon /> <span>voice</span>
-          </span>
-          <span className="shortcut-pill" title="Rewrite shortcut">
-            ⌃⇧Space <span>rewrite</span>
-          </span>
-        </div>
-        <div className="footer-actions">
-          <button
-            className={`mic-btn${isRecording ? ' active' : ''}`}
-            onClick={isRecording ? closeMic : openMic}
-            title={isRecording ? 'Release to transcribe' : 'Start voice dictation'}
-          >
-            <MicIcon recording={isRecording} />
-          </button>
-          <button
-            className={`rewrite-btn${status === 'loading' ? ' loading' : ''}`}
-            onClick={handleRewrite}
-            disabled={status === 'loading' || isRecording}
-          >
-            {status === 'loading' && !isRecording
-              ? <><span className="btn-spinner" />Working…</>
-              : 'Rewrite'
-            }
+          <p className="recording-label">Listening…</p>
+          <p className="recording-sub">Release <kbd>Ctrl + <WinKeyIcon /></kbd> to transcribe</p>
+          <button className="recording-stop-btn" onClick={closeMic}>
+            <span className="stop-square" /> Stop
           </button>
         </div>
-      </div>
+      )}
+
+      {/* Body — shown only when NOT recording */}
+      {!isRecording && (
+        <div className="widget-body">
+
+          {/* Transcribing spinner */}
+          {status === 'loading' && (
+            <div className="widget-loading">
+              <span className="spinner" />
+              <span>{message}</span>
+            </div>
+          )}
+
+          {/* Success */}
+          {status === 'success' && (
+            <div className="widget-feedback success">
+              <CheckIcon />
+              <div>
+                <strong>Typed into field</strong>
+                <p className="feedback-preview">{message}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {status === 'error' && (
+            <div className="widget-feedback error">
+              <WarnIcon />
+              <span>{message}</span>
+            </div>
+          )}
+
+          {/* Idle — last output */}
+          {status === 'idle' && lastOutput && (
+            <div className="last-rewrite">
+              <span className="last-rewrite-label">Last output</span>
+              <p className="last-rewrite-text">{lastOutput}</p>
+            </div>
+          )}
+
+          {/* Idle — first-run hint */}
+          {status === 'idle' && !lastOutput && (
+            <p className="widget-hint">
+              <strong>Hold Ctrl + <WinKeyIcon /></strong> to dictate by voice.<br />
+              Click in a text field &amp; press <strong>Rewrite</strong> to rephrase.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Footer — hidden while recording */}
+      {!isRecording && (
+        <div className="widget-footer">
+          <div className="footer-shortcuts">
+            <span className="shortcut-pill" title="Hold to dictate">
+              Ctrl+<WinKeyIcon /> <span>voice</span>
+            </span>
+            <span className="shortcut-pill" title="Rewrite shortcut">
+              ⌃⇧Space <span>rewrite</span>
+            </span>
+          </div>
+          <div className="footer-actions">
+            <button
+              className="mic-btn"
+              onClick={openMic}
+              title="Start voice dictation"
+            >
+              <MicIcon recording={false} />
+            </button>
+            <button
+              className={`rewrite-btn${status === 'loading' ? ' loading' : ''}`}
+              onClick={handleRewrite}
+              disabled={status === 'loading'}
+            >
+              {status === 'loading'
+                ? <><span className="btn-spinner" />Working…</>
+                : 'Rewrite'
+              }
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

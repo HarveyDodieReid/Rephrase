@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Voice Overlay  ·  compact pill — icon + audio-reactive bars
-   Theme-aware (light/dark), transparent edges
+   Voice Overlay  ·  240×56 floating pill  ·  theme-aware
    ═══════════════════════════════════════════════════════════ */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -8,152 +7,224 @@
 html, body, #root {
   background: transparent !important;
   overflow: hidden;
-}
-
-/* ── Root pill ──────────────────────────────────────────────── */
-
-.vo-root {
   width: 100%;
   height: 100%;
+}
+
+/* ── Root pill: corner UI only, no solid white block ─────────── */
+
+.vo-root {
+  width: 180px;
+  height: 42px;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 7px;
-  padding: 0 10px 0 6px;
-  background: transparent;
-
-  /* Inner pill — only this has visible background */
-  /* White frosted glass (light) */
-  box-shadow:
-    0 2px 16px rgba(0, 0, 0, 0.12),
-    0 1px 4px rgba(0, 0, 0, 0.08);
+  padding: 0 10px 0 8px;
 
   border-radius: 100px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-
-  /* Pill background */
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px) saturate(1.5);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 3px 16px rgba(0, 0, 0, 0.12),
+    0 1px 4px  rgba(0, 0, 0, 0.06);
 
   user-select: none;
   -webkit-user-select: none;
   overflow: hidden;
 
-  animation: vo-enter 0.20s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+  animation: vo-enter 0.22s cubic-bezier(0.34, 1.45, 0.64, 1) both;
 }
 
 /* Dark theme */
 .vo-root[data-theme="dark"] {
-  background: rgba(44, 44, 46, 0.95);
+  background: rgba(30, 30, 34, 0.92);
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow:
-    0 2px 16px rgba(0, 0, 0, 0.4),
-    0 1px 4px rgba(0, 0, 0, 0.2);
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    0 1px 6px  rgba(0, 0, 0, 0.25);
 }
 
-.vo-done { animation: vo-exit 0.22s cubic-bezier(0.4, 0, 1, 1) forwards; }
-
-/* Error state — shake animation */
+/* State animations */
+.vo-done  { animation: vo-exit  0.22s cubic-bezier(0.4, 0, 1, 1) forwards; }
 .vo-error {
-  animation: vo-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  animation: vo-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
   border-color: rgba(220, 38, 38, 0.25);
-  background: rgba(254, 242, 242, 0.96);
+  background: rgba(255, 245, 245, 0.95);
 }
 .vo-root[data-theme="dark"].vo-error {
-  background: rgba(127, 29, 29, 0.95);
+  background: rgba(60, 20, 20, 0.95);
   border-color: rgba(220, 38, 38, 0.3);
 }
 
 @keyframes vo-enter {
-  from { opacity: 0; transform: scale(0.84) translateY(6px); filter: blur(3px); }
+  from { opacity: 0; transform: scale(0.82) translateY(8px); filter: blur(4px); }
   to   { opacity: 1; transform: scale(1)    translateY(0);   filter: blur(0);   }
 }
 @keyframes vo-exit {
   from { opacity: 1; transform: scale(1)    translateY(0);   filter: blur(0);   }
-  to   { opacity: 0; transform: scale(0.90) translateY(4px); filter: blur(3px); }
+  to   { opacity: 0; transform: scale(0.88) translateY(5px); filter: blur(4px); }
 }
 @keyframes vo-shake {
   0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px) rotate(-1deg); }
-  20%, 40%, 60%, 80% { transform: translateX(4px) rotate(1deg); }
+  15%, 45%, 75% { transform: translateX(-5px) rotate(-0.8deg); }
+  30%, 60%, 90% { transform: translateX( 5px) rotate( 0.8deg); }
 }
 
-/* ── App icon badge (transparent — no white square) ─────────────────────── */
+/* ── Left section: icon + dot ───────────────────────────────── */
 
-.vo-icon-badge {
+.vo-left {
   flex-shrink: 0;
+}
+
+.vo-icon-wrap {
+  position: relative;
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  background: rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+.vo-root[data-theme="dark"] .vo-icon-wrap {
+  background: #2a2a2f;
+  border-color: rgba(255,255,255,0.08);
 }
 
 .vo-app-img {
-  width: 24px;
-  height: 24px;
+  width: 15px;
+  height: 15px;
   object-fit: contain;
   display: block;
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
 }
 
+/* Status dot — bottom-right of icon */
+.vo-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+}
+
+.vo-root[data-theme="dark"] .vo-dot {
+  border-color: rgba(36, 36, 40, 0.97);
+}
+
+.vo-dot-listening {
+  background: #ef4444;
+  animation: dot-pulse 1.4s ease-in-out infinite;
+}
+
+.vo-dot-transcribing {
+  background: #6366f1;
+  animation: dot-pulse-slow 2s ease-in-out infinite;
+}
+
+.vo-dot-done  { background: #22c55e; }
+.vo-dot-error { background: #ef4444; }
+
+@keyframes dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(239,68,68,0.6); }
+  50%       { box-shadow: 0 0 0 4px rgba(239,68,68,0);   }
+}
+
+@keyframes dot-pulse-slow {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(99,102,241,0.5); }
+  50%       { box-shadow: 0 0 0 4px rgba(99,102,241,0);   }
+}
+
+/* ── Center section: label + wave ───────────────────────────── */
+
+.vo-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.vo-label {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #111;
+  line-height: 1.2;
+  flex-shrink: 0;
+  order: 1;
+}
+
+.vo-root[data-theme="dark"] .vo-label {
+  color: #f0f0f2;
+}
+
+/* Listening / Transcribing: label is the main focus, above the wave */
+.vo-listening .vo-label,
+.vo-transcribing .vo-label {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.vo-wave-freeze .vo-bar {
+  background: #818cf8;
+  opacity: 0.75;
+  transition: height 0.3s ease;
+}
+
+.vo-root[data-theme="dark"] .vo-wave-freeze .vo-bar {
+  background: #a5b4fc;
+}
+
+/* ── Status icons (error / done) ───────────────────────────── */
+
+.vo-status-icon {
+  display: flex;
+  align-items: center;
+  height: 14px;
+}
+
+.vo-listening .vo-label  { color: #111; }
+.vo-root[data-theme="dark"].vo-listening .vo-label { color: #f0f0f2; }
+
+.vo-transcribing .vo-label { color: #4f46e5; }
+.vo-root[data-theme="dark"].vo-transcribing .vo-label { color: #a5b4fc; }
+
+.vo-done .vo-label  { color: #16a34a; }
+.vo-error .vo-label { color: #dc2626; }
+
 /* ── Waveform bars ──────────────────────────────────────────── */
 
 .vo-wave {
   display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 100%;
-  padding: 7px 0;
-  flex: 1;
-  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 1.5px;
+  height: 12px;
+  order: 2;
+  flex-shrink: 0;
 }
 
 .vo-bar {
   display: block;
   width: 2px;
-  min-height: 2px;
+  min-height: 1.5px;
   border-radius: 99px;
   background: #1a1a1a;
-  /* height is set inline by JS — no CSS animation */
   transition: height 0.04s linear;
-  transform-origin: center;
+  transform-origin: bottom;
 }
 
-/* Dark theme bars */
 .vo-root[data-theme="dark"] .vo-bar {
-  background: #e5e5e7;
-}
-
-/* Transcribing — fade bars to muted indigo */
-.vo-wave-freeze .vo-bar {
-  background: #a5b4fc;
-  opacity: 0.6;
-}
-.vo-root[data-theme="dark"] .vo-wave-freeze .vo-bar {
-  background: #818cf8;
-  opacity: 0.7;
-}
-
-/* ── Error icon ─────────────────────────────────────────────── */
-
-.vo-error-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-}
-
-/* ── Done checkmark ─────────────────────────────────────────── */
-
-.vo-done-check {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
+  background: #e2e2e6;
 }

@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Manual rewrite
   rephrase: () => ipcRenderer.invoke('rephrase'),
 
+  // Vibe Code: pick file and edit with AI
   // Voice dictation
   transcribeAudio: (buffer) => ipcRenderer.invoke('transcribe-audio', buffer),
   insertText:      (text)   => ipcRenderer.invoke('insert-text', text),
@@ -112,6 +113,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUpdateInfo:   () => ipcRenderer.invoke('get-update-info'),
   openUpdateWindow: (info) => ipcRenderer.invoke('open-update-window', info),
   closeUpdateNotif: () => ipcRenderer.invoke('close-update-notif'),
+  onUpdateChecking:        (cb) => { ipcRenderer.on('update-checking', () => cb()); return () => ipcRenderer.removeAllListeners('update-checking') },
   onUpdateAvailable:       (cb) => { ipcRenderer.on('update-available', (_, d) => cb(d)); return () => ipcRenderer.removeAllListeners('update-available') },
   onUpdateNotAvailable:    (cb) => { ipcRenderer.on('update-not-available', () => cb()); return () => ipcRenderer.removeAllListeners('update-not-available') },
   onUpdateDownloadProgress:(cb) => { ipcRenderer.on('update-download-progress', (_, d) => cb(d)); return () => ipcRenderer.removeAllListeners('update-download-progress') },
@@ -138,4 +140,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   safetyProceed: () => ipcRenderer.invoke('safety-proceed'),
   safetyClose:   () => ipcRenderer.invoke('safety-close'),
+
+  // ── Setup / install ───────────────────────────────────────────────────────
+  checkSetup:           (model) => ipcRenderer.invoke('check-setup', model),
+  getDownloadedModels:  ()      => ipcRenderer.invoke('get-downloaded-models'),
+  downloadWhisperModel: (model) => ipcRenderer.invoke('download-whisper-model', model),
+  buildWhisper:        ()      => ipcRenderer.invoke('build-whisper'),
+  installOllama:       ()      => ipcRenderer.invoke('install-ollama'),
+  pullOllamaModel:     ()      => ipcRenderer.invoke('pull-ollama-model'),
+  deleteWhisperModel:  (model) => ipcRenderer.invoke('delete-whisper-model', model),
+  uninstallWhisper:    ()      => ipcRenderer.invoke('uninstall-whisper'),
+  onSetupProgress: (cb) => {
+    ipcRenderer.on('setup-progress', (_, d) => cb(d))
+    return () => ipcRenderer.removeAllListeners('setup-progress')
+  },
+
+  // #region agent log — debug bridge
+  __debugLog: (payload) => ipcRenderer.invoke('__debug_log', payload),
+  // #endregion
 })

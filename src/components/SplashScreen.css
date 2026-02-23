@@ -1,26 +1,39 @@
+/* Splash – centered widget, uses same theme as app (--db-* from parent .db-root) */
+
 .splash-root {
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: #ffffff;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
   transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+.splash-root .splash-inner { pointer-events: auto; }
 
 .splash-root.splash-exit {
   opacity: 0;
   pointer-events: none;
 }
 
+/* Centered panel – theme from parent .db-root */
 .splash-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
+  width: 100%;
+  max-width: 340px;
+  padding: 36px 32px 32px;
+  background: var(--db-card, #2f3136);
+  border-radius: 14px;
+  border: 1px solid var(--db-border, rgba(255, 255, 255, 0.06));
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
   opacity: 0;
-  transform: scale(0.95) translateY(8px);
+  transform: scale(0.96) translateY(10px);
   transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
               transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -34,37 +47,136 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: brightness(0);
 }
 
 .splash-tagline {
   font-size: 14px;
   font-weight: 500;
-  color: #6b6560;
-  letter-spacing: 0.3px;
+  font-style: italic;
+  color: var(--db-text, rgba(255, 255, 255, 0.9));
+  letter-spacing: 0.2px;
   margin: 0;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ── Status + loader ───────────────────────────────────────────────────────── */
+
+.splash-status {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--db-text-sec, rgba(255, 255, 255, 0.4));
+  letter-spacing: 0.04em;
+  margin: 0;
+  min-height: 16px;
+  text-align: center;
+  text-transform: uppercase;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  transition: opacity 0.2s ease;
 }
 
 .splash-loader {
-  width: 64px;
+  width: 72px;
   height: 3px;
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--db-border, rgba(255, 255, 255, 0.12));
   border-radius: 3px;
   overflow: hidden;
-  margin-top: 8px;
+  margin-top: 2px;
 }
 
 .splash-loader-bar {
   display: block;
   height: 100%;
-  width: 40%;
-  background: #1a1a1a;
+  width: 36%;
+  background: var(--db-accent, rgba(255, 255, 255, 0.85));
   border-radius: 3px;
-  animation: splash-load 1.6s ease-in-out infinite;
+  animation: splash-load 1.8s ease-in-out infinite;
+}
+
+.splash-loader-done {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: #34a853;
+  border-radius: 3px;
+  animation: splash-fill 0.4s ease both;
+}
+
+/* ── Update available block ─────────────────────────────────────────────────── */
+
+.splash-update-block {
+  width: 100%;
+  text-align: center;
+  margin-top: 4px;
+}
+
+.splash-update-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--db-text, #edecec);
+  margin: 0 0 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+.splash-update-version {
+  font-size: 12px;
+  color: var(--db-text-sec, rgba(255, 255, 255, 0.5));
+  margin: 0 0 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+.splash-update-status {
+  font-size: 12px;
+  color: var(--db-text-sec, rgba(255, 255, 255, 0.5));
+  margin: 0 0 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+.splash-update-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.splash-btn {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.2s ease, background 0.2s ease;
+}
+
+.splash-btn--primary {
+  background: var(--db-accent, #3A6A9F);
+  color: #fff;
+}
+
+.splash-btn--primary:hover {
+  filter: brightness(1.08);
+}
+
+.splash-btn--secondary {
+  background: var(--db-hover, rgba(255, 255, 255, 0.06));
+  color: var(--db-text-sec, rgba(255, 255, 255, 0.7));
+}
+
+.splash-btn--secondary:hover {
+  background: var(--db-border, rgba(255, 255, 255, 0.1));
+  color: var(--db-text, #fff);
 }
 
 @keyframes splash-load {
   0%   { transform: translateX(-100%); }
-  50%  { transform: translateX(150%); }
+  50%  { transform: translateX(180%); }
   100% { transform: translateX(-100%); }
+}
+
+@keyframes splash-fill {
+  from { width: 0; }
+  to   { width: 100%; }
 }

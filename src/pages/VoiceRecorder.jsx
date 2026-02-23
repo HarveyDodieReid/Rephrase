@@ -8,19 +8,26 @@
  */
 import { useEffect, useRef } from 'react'
 
+const MIN_RECORDING_MS = 700
+
 export default function VoiceRecorder() {
   const mediaRecorderRef = useRef(null)
   const chunksRef        = useRef([])
   const isRecordingRef   = useRef(false)
+  const pendingStopRef   = useRef(false)
+  const recordingStartRef = useRef(0)
+  const minDurationTimerRef = useRef(null)
   const streamRef        = useRef(null)
   const audioCtxRef      = useRef(null)
 
   useEffect(() => {
-    // ── voice-start → open mic + begin recording ─────────────────────────
     const stopVoiceStart = window.electronAPI?.onVoiceStart(async () => {
+      console.log('[VoiceRecorder] voice-start received, already recording:', isRecordingRef.current)
       if (isRecordingRef.current) return
       isRecordingRef.current = true
+      pendingStopRef.current = false
       chunksRef.current = []
+      recordingStartRef.current = Date.now()
 
       try {
         const settings = await window.electronAPI?.getSettings().catch(() => ({}))
@@ -33,58 +40,84 @@ export default function VoiceRecorder() {
           video: false,
         })
         streamRef.current = stream
+        console.log('[VoiceRecorder] mic stream acquired')
 
-        // Keep AudioContext alive so the microphone track stays active
         const audioCtx = new AudioContext()
         audioCtxRef.current = audioCtx
-        audioCtx.createMediaStreamSource(stream)  // connect to keep stream alive
+        audioCtx.createMediaStreamSource(stream)
 
         const mr = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
         mediaRecorderRef.current = mr
         mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
 
         mr.onstop = async () => {
-          // Tear down mic / audio context
           streamRef.current?.getTracks().forEach(t => t.stop())
           streamRef.current = null
           audioCtxRef.current?.close().catch(() => {})
           audioCtxRef.current = null
 
+          console.log('[VoiceRecorder] MediaRecorder stopped, chunks:', chunksRef.current.length)
           if (chunksRef.current.length === 0) return
 
           const blob   = new Blob(chunksRef.current, { type: 'audio/webm' })
           const buffer = await blob.arrayBuffer()
+          const copy   = buffer.slice(0)
+          console.log('[VoiceRecorder] sending audio to transcribe, bytes:', copy.byteLength)
 
-          const result = await window.electronAPI?.transcribeAudio(buffer)
+          const result = await window.electronAPI?.transcribeAudio(copy)
+          console.log('[VoiceRecorder] transcribe result:', result?.ok, result?.error)
 
           if (result?.ok && result.insert !== false && result.text?.trim()) {
             await window.electronAPI?.insertText(result.text.trim())
           }
-          // Main handles overlay close / error display — nothing else needed here
         }
 
-        mr.start(100)   // emit data every 100 ms
-      } catch {
-        // Mic access failed — main's safety timeout will close the overlay
+        mr.start(100)
+        console.log('[VoiceRecorder] recording started')
+
+        if (pendingStopRef.current) {
+          console.log('[VoiceRecorder] voice-stop arrived during setup, stopping now')
+          pendingStopRef.current = false
+          isRecordingRef.current = false
+          mr.stop()
+        }
+      } catch (err) {
+        console.error('[VoiceRecorder] mic open failed:', err)
         isRecordingRef.current = false
       }
     })
 
-    // ── voice-stop → stop MediaRecorder → onstop fires → audio sent ──────
     const stopVoiceStop = window.electronAPI?.onVoiceStop(() => {
-      isRecordingRef.current = false
+      console.log('[VoiceRecorder] voice-stop received, mr state:', mediaRecorderRef.current?.state)
       const mr = mediaRecorderRef.current
-      if (mr && mr.state !== 'inactive') mr.stop()
+      const elapsed = Date.now() - recordingStartRef.current
+
+      const doStop = () => {
+        if (minDurationTimerRef.current) {
+          clearTimeout(minDurationTimerRef.current)
+          minDurationTimerRef.current = null
+        }
+        isRecordingRef.current = false
+        if (mr && mr.state !== 'inactive') mr.stop()
+        else pendingStopRef.current = true
+      }
+
+      if (elapsed >= MIN_RECORDING_MS) {
+        doStop()
+      } else {
+        const wait = MIN_RECORDING_MS - elapsed
+        minDurationTimerRef.current = setTimeout(doStop, wait)
+      }
     })
 
     return () => {
+      if (minDurationTimerRef.current) clearTimeout(minDurationTimerRef.current)
       stopVoiceStart?.()
       stopVoiceStop?.()
-      // Clean up any open mic on unmount
       streamRef.current?.getTracks().forEach(t => t.stop())
       audioCtxRef.current?.close().catch(() => {})
     }
   }, [])  // eslint-disable-line
 
-  return null   // no visible output
+  return null
 }
